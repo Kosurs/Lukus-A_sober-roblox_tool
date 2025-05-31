@@ -6,6 +6,6 @@
 </head>
 <body>
     <h1 align="center">
-        <img src="https://i.ibb.co/FLNYQ44G/erasebg-transformed.png" width="40" alt="Logo"/> 
+        <img src="https://i.postimg.cc/KYg2SKGf/59a711a4-5083-43ac-a1fd-216876fba3e2-removalai-preview.png" width="40" alt="Logo"/> 
          LUKUS - a FFlag manager for SOBER
     </h1>
