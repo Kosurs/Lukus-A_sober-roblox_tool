@@ -1,7 +1,9 @@
 import gi
+gi.require_version('Gtk', '4.0')
 import os
 import json
-from gi.repository import Gtk, GLib
+import urllib.request
+from gi.repository import Gtk, GLib, GdkPixbuf
 
 class LukuWindow(Gtk.ApplicationWindow):
     def __init__(self, app):
@@ -9,7 +11,14 @@ class LukuWindow(Gtk.ApplicationWindow):
         self.set_title("Lukus - Sober FFlags Modifier")
         self.set_default_size(700, 450)
 
-        # Stack para navegação
+        logo_url = "https://i.postimg.cc/KYg2SKGf/59a711a4-5083-43ac-a1fd-216876fba3e2-removalai-preview.png"
+        logo_path = "/tmp/lukus_logo.png"
+        try:
+            if not os.path.exists(logo_path):
+                urllib.request.urlretrieve(logo_url, logo_path)
+        except Exception as e:
+            print(f"Could not download logo: {e}")
+
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         self.set_child(vbox)
         self.stack = Gtk.Stack()
@@ -19,15 +28,23 @@ class LukuWindow(Gtk.ApplicationWindow):
         vbox.append(switcher)
         vbox.append(self.stack)
 
-        # Easy Access Screen
         easy_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24, margin_top=30, margin_bottom=30, margin_start=30, margin_end=30)
+        logo_path = "/tmp/lukus_logo.png"
+        try:
+            if not os.path.exists(logo_path):
+                urllib.request.urlretrieve("https://i.postimg.cc/KYg2SKGf/59a711a4-5083-43ac-a1fd-216876fba3e2-removalai-preview.png", logo_path)
+            logo_picture = Gtk.Picture.new_for_filename(logo_path)
+            logo_picture.set_content_fit(Gtk.ContentFit.CONTAIN)
+            logo_picture.set_size_request(180, 180)
+            easy_box.append(logo_picture)
+        except Exception as e:
+            print(f"Could not load logo in UI: {e}")
         label = Gtk.Label(label="WELCOME TO LUKUS")
         label.set_margin_bottom(20)
         label.set_margin_top(20)
         label.set_margin_start(20)
         label.set_margin_end(20)
         easy_box.append(label)
-        # FPS Unlock
         fps_frame = Gtk.Frame(label="FPS Unlock")
         fps_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12, margin_top=12, margin_bottom=12, margin_start=12, margin_end=12)
         fps_label = Gtk.Label(label="FPS:")
@@ -37,7 +54,6 @@ class LukuWindow(Gtk.ApplicationWindow):
         fps_box.append(self.fps_entry)
         fps_frame.set_child(fps_box)
         easy_box.append(fps_frame)
-        # Occlusion Culling
         occ_frame = Gtk.Frame(label="Occlusion Culling")
         occ_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12, margin_top=12, margin_bottom=12, margin_start=12, margin_end=12)
         occ_label = Gtk.Label(label="Enable")
@@ -47,7 +63,6 @@ class LukuWindow(Gtk.ApplicationWindow):
         occ_box.append(self.fflag_occlusion)
         occ_frame.set_child(occ_box)
         easy_box.append(occ_frame)
-        # Lightning Technologies
         lighting_frame = Gtk.Frame(label="Lightning Technologies")
         lighting_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=12, margin_bottom=12, margin_start=12, margin_end=12)
         self.switch_voxel = Gtk.Switch()
@@ -70,24 +85,20 @@ class LukuWindow(Gtk.ApplicationWindow):
         lighting_box.append(future_row)
         lighting_frame.set_child(lighting_box)
         easy_box.append(lighting_frame)
-        # Advanced Graphics
         advanced_frame = Gtk.Frame(label="Advanced Graphics")
         advanced_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10, margin_top=10, margin_bottom=10, margin_start=10, margin_end=10)
-        # Example option: Avatar Chat Visualization
         self.switch_avatar_chat = Gtk.Switch()
         self.switch_avatar_chat.set_active(False)
         avatar_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         avatar_row.append(Gtk.Label(label="Avatar Chat Visualization"))
         avatar_row.append(self.switch_avatar_chat)
         advanced_box.append(avatar_row)
-        # HyperThreading
         self.switch_hyper = Gtk.Switch()
         self.switch_hyper.set_active(False)
         hyper_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         hyper_row.append(Gtk.Label(label="HyperThreading"))
         hyper_row.append(self.switch_hyper)
         advanced_box.append(hyper_row)
-        # Maximum Threads
         max_threads_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         max_threads_row.append(Gtk.Label(label="Maximum Threads:"))
         self.spin_max_threads = Gtk.SpinButton()
@@ -96,7 +107,6 @@ class LukuWindow(Gtk.ApplicationWindow):
         self.spin_max_threads.set_value(2400)
         max_threads_row.append(self.spin_max_threads)
         advanced_box.append(max_threads_row)
-        # Minimum Threads
         min_threads_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         min_threads_row.append(Gtk.Label(label="Minimum Threads:"))
         self.spin_min_threads = Gtk.SpinButton()
@@ -105,14 +115,12 @@ class LukuWindow(Gtk.ApplicationWindow):
         self.spin_min_threads.set_value(3)
         min_threads_row.append(self.spin_min_threads)
         advanced_box.append(min_threads_row)
-        # Smoother Terrain
         self.switch_smooth_terrain = Gtk.Switch()
         self.switch_smooth_terrain.set_active(False)
         smooth_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         smooth_row.append(Gtk.Label(label="Smoother Terrain"))
         smooth_row.append(self.switch_smooth_terrain)
         advanced_box.append(smooth_row)
-        # Graphics Quality Level
         quality_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.switch_quality = Gtk.Switch()
         self.switch_quality.set_active(False)
@@ -124,7 +132,6 @@ class LukuWindow(Gtk.ApplicationWindow):
         self.spin_quality.set_value(1)
         quality_row.append(self.spin_quality)
         advanced_box.append(quality_row)
-        # Low Quality Terrain Textures
         terrain_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.switch_terrain = Gtk.Switch()
         self.switch_terrain.set_active(False)
@@ -136,56 +143,48 @@ class LukuWindow(Gtk.ApplicationWindow):
         self.spin_terrain.set_value(4)
         terrain_row.append(self.spin_terrain)
         advanced_box.append(terrain_row)
-        # Disable Shadows
         self.switch_no_shadows = Gtk.Switch()
         self.switch_no_shadows.set_active(False)
         no_shadows_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         no_shadows_row.append(Gtk.Label(label="Disable Shadows"))
         no_shadows_row.append(self.switch_no_shadows)
         advanced_box.append(no_shadows_row)
-        # Preserve rendering quality with display setting
         self.switch_dpi = Gtk.Switch()
         self.switch_dpi.set_active(False)
         dpi_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         dpi_row.append(Gtk.Label(label="Preserve rendering quality with display setting"))
         dpi_row.append(self.switch_dpi)
         advanced_box.append(dpi_row)
-        # Disable Wind
         self.switch_wind = Gtk.Switch()
         self.switch_wind.set_active(False)
         wind_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         wind_row.append(Gtk.Label(label="Disable Wind"))
         wind_row.append(self.switch_wind)
         advanced_box.append(wind_row)
-        # Disable PostFX
         self.switch_postfx = Gtk.Switch()
         self.switch_postfx.set_active(False)
         postfx_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         postfx_row.append(Gtk.Label(label="Disable PostFX"))
         postfx_row.append(self.switch_postfx)
         advanced_box.append(postfx_row)
-        # Gray Sky
         self.switch_gray_sky = Gtk.Switch()
         self.switch_gray_sky.set_active(False)
         gray_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         gray_row.append(Gtk.Label(label="Gray Sky"))
         gray_row.append(self.switch_gray_sky)
         advanced_box.append(gray_row)
-        # Lighting Attenuation
         self.switch_light_atten = Gtk.Switch()
         self.switch_light_atten.set_active(False)
         atten_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         atten_row.append(Gtk.Label(label="Lighting Attenuation"))
         atten_row.append(self.switch_light_atten)
         advanced_box.append(atten_row)
-        # Enable GPULightCulling
         self.switch_gpu_culling = Gtk.Switch()
         self.switch_gpu_culling.set_active(False)
         gpu_culling_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         gpu_culling_row.append(Gtk.Label(label="Enable GPULightCulling"))
         gpu_culling_row.append(self.switch_gpu_culling)
         advanced_box.append(gpu_culling_row)
-        # Frame Buffer
         fb_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.switch_fb = Gtk.Switch()
         self.switch_fb.set_active(False)
@@ -197,14 +196,12 @@ class LukuWindow(Gtk.ApplicationWindow):
         self.spin_fb.set_value(4)
         fb_row.append(self.spin_fb)
         advanced_box.append(fb_row)
-        # High Quality Textures
         self.switch_high_tex = Gtk.Switch()
         self.switch_high_tex.set_active(False)
         high_tex_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         high_tex_row.append(Gtk.Label(label="High Quality Textures"))
         high_tex_row.append(self.switch_high_tex)
         advanced_box.append(high_tex_row)
-        # Lower Quality Textures
         low_tex_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         low_tex_row.append(Gtk.Label(label="Lower Quality Textures:"))
         self.spin_low_tex = Gtk.SpinButton()
@@ -213,21 +210,18 @@ class LukuWindow(Gtk.ApplicationWindow):
         self.spin_low_tex.set_value(-1)
         low_tex_row.append(self.spin_low_tex)
         advanced_box.append(low_tex_row)
-        # No avatar textures
         self.switch_no_avatar_tex = Gtk.Switch()
         self.switch_no_avatar_tex.set_active(False)
         no_avatar_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         no_avatar_row.append(Gtk.Label(label="No avatar textures"))
         no_avatar_row.append(self.switch_no_avatar_tex)
         advanced_box.append(no_avatar_row)
-        # Remove Grass
         self.switch_no_grass = Gtk.Switch()
         self.switch_no_grass.set_active(False)
         no_grass_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         no_grass_row.append(Gtk.Label(label="Remove Grass"))
         no_grass_row.append(self.switch_no_grass)
         advanced_box.append(no_grass_row)
-        # Force MSAA
         msaa_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.switch_msaa = Gtk.Switch()
         self.switch_msaa.set_active(False)
@@ -239,7 +233,6 @@ class LukuWindow(Gtk.ApplicationWindow):
         self.spin_msaa.set_value(4)
         msaa_row.append(self.spin_msaa)
         advanced_box.append(msaa_row)
-        # ShadowMap Bias
         bias_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.switch_bias = Gtk.Switch()
         self.switch_bias.set_active(False)
@@ -251,42 +244,34 @@ class LukuWindow(Gtk.ApplicationWindow):
         self.spin_bias.set_value(75)
         bias_row.append(self.spin_bias)
         advanced_box.append(bias_row)
-        # Humanoid Outline
         self.switch_outline = Gtk.Switch()
         self.switch_outline.set_active(False)
         outline_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         outline_row.append(Gtk.Label(label="Humanoid Outline"))
         outline_row.append(self.switch_outline)
         advanced_box.append(outline_row)
-        # Buggy ZPlane Camera a.k.a xray
         self.switch_xray = Gtk.Switch()
         self.switch_xray.set_active(False)
         xray_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         xray_row.append(Gtk.Label(label="Buggy ZPlane Camera (Xray)"))
         xray_row.append(self.switch_xray)
         advanced_box.append(xray_row)
-        # Add advanced_box to frame
         advanced_frame.set_child(advanced_box)
         easy_box.append(advanced_frame)
-        # Apply button
         apply_btn = Gtk.Button(label="Apply settings")
         apply_btn.connect("clicked", self.on_apply_easy)
         easy_box.append(apply_btn)
-        # Add scroll
         easy_scroll = Gtk.ScrolledWindow()
         easy_scroll.set_child(easy_box)
         easy_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         self.stack.add_titled(easy_scroll, "easy", "Easy Access")
-
-        # FFlags screen
         fflags_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, margin_top=12, margin_bottom=12, margin_start=12, margin_end=12)
-        # Config path
         self.config_path = os.path.expanduser("~/.var/app/org.vinegarhq.Sober/config/sober/config.json")
         sober_dir = os.path.dirname(self.config_path)
         if not os.path.exists(sober_dir):
             dialog = Gtk.MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.CLOSE, message_type=Gtk.MessageType.ERROR, text="Sober folder not found!\nStart Sober at least once.")
             dialog.connect("response", lambda d, r: d.destroy())
-            dialog.show()
+            dialog.present()
         self.path_label = Gtk.Label(label=f"Config: {self.config_path}")
         self.path_label.set_xalign(0)
         fflags_box.append(self.path_label)
@@ -328,22 +313,27 @@ class LukuWindow(Gtk.ApplicationWindow):
         self.fflags_text.set_vexpand(False)
         fflags_box.append(self.fflags_text)
         self.stack.add_titled(fflags_box, "fflags", "FFlags")
-
-        # Credits screen
-        creditos_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=20)
-        creditos_label = Gtk.Label(label="kosurs")
-        creditos_label.set_margin_top(40)
-        creditos_label.set_margin_bottom(40)
-        creditos_label.set_margin_start(40)
-        creditos_label.set_margin_end(40)
-        creditos_box.append(creditos_label)
-        self.stack.add_titled(creditos_box, "creditos", "Credits")
-
+        credits_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16, margin_top=40, margin_bottom=40, margin_start=40, margin_end=40)
+        credits_title = Gtk.Label(label="Credits")
+        credits_title.set_margin_bottom(10)
+        credits_title.set_markup("<span size='xx-large' weight='bold'>Credits</span>")
+        credits_box.append(credits_title)
+        author_label = Gtk.Label(label="Developed by: Nhet_444")
+        author_label.set_margin_bottom(8)
+        author_label.set_markup("<b>Developed by:</b> Nhet_444")
+        credits_box.append(author_label)
+        yt_label = Gtk.Label()
+        yt_label.set_markup("<a href='https://www.youtube.com/@Nhet_444'>YouTube: @Nhet_444</a>")
+        yt_label.set_selectable(True)
+        yt_label.set_margin_bottom(8)
+        credits_box.append(yt_label)
+        thanks_label = Gtk.Label(label="Thank you for using Lukus!\nIf you like this project, consider subscribing and supporting on YouTube.")
+        thanks_label.set_justify(Gtk.Justification.CENTER)
+        credits_box.append(thanks_label)
+        self.stack.add_titled(credits_box, "creditos", "Credits")
         self.load_fflags()
         self.apply_dark_mode()
-
     def set_easy_fflag(self, name, value):
-        # Procura se já existe, se sim, edita, se não, adiciona
         found = False
         for row in self.fflag_store:
             if row[0] == name:
@@ -353,7 +343,6 @@ class LukuWindow(Gtk.ApplicationWindow):
         if not found:
             self.fflag_store.append([name, value])
         self.update_fflags_text()
-
     def update_fflags_text(self):
         buf = self.fflags_text.get_buffer()
         fflags = {}
@@ -361,7 +350,6 @@ class LukuWindow(Gtk.ApplicationWindow):
             fflags[row[0]] = self.parse_value(row[1])
         import json
         buf.set_text(json.dumps(fflags, indent=4, ensure_ascii=False))
-
     def parse_value(self, value):
         v = value.strip()
         if v.lower() == 'true':
@@ -374,9 +362,9 @@ class LukuWindow(Gtk.ApplicationWindow):
             return int(v)
         except ValueError:
             return v
-
     def load_fflags(self):
-        self.fflag_store.clear()
+        for row in list(self.fflag_store):
+            self.fflag_store.remove(row.iter)
         if os.path.exists(self.config_path):
             try:
                 with open(self.config_path, "r") as f:
@@ -384,13 +372,11 @@ class LukuWindow(Gtk.ApplicationWindow):
                 fflags = data.get("fflags", {})
                 for key, value in fflags.items():
                     self.fflag_store.append([key, str(value)])
-                # Atualiza switches de iluminação se já estiverem ativados no arquivo
                 if os.path.exists(self.config_path):
                     try:
                         with open(self.config_path, "r") as f:
                             data = json.load(f)
                         fflags = data.get("fflags", {})
-                        # Atualiza switches de iluminação
                         if str(fflags.get("DFFlagDebugRenderForceTechnologyVoxel", "")).lower() == "true":
                             self.switch_voxel.set_active(True)
                         if str(fflags.get("FFlagDebugForceFutureIsBrightPhase2", "")).lower() == "true":
@@ -401,7 +387,6 @@ class LukuWindow(Gtk.ApplicationWindow):
                         print(f"Erro ao ler config.json: {e}")
             except Exception as e:
                 print(f"Erro ao ler config.json: {e}")
-
     def on_add_fflag(self, button):
         fflag = self.fflag_entry.get_text().strip()
         value = self.value_entry.get_text().strip()
@@ -410,25 +395,20 @@ class LukuWindow(Gtk.ApplicationWindow):
             self.fflag_entry.set_text("")
             self.value_entry.set_text("")
             self.update_fflags_text()
-
     def on_remove_fflag(self, button):
         selection = self.fflag_view.get_selection()
         model, treeiter = selection.get_selected() if selection else (None, None)
         if treeiter:
             model.remove(treeiter)
             self.update_fflags_text()
-
     def on_fflag_edited(self, widget, path, text, column):
         self.fflag_store[path][column] = text
         self.update_fflags_text()
-
     def on_save_fflags(self, button):
-        # Backup automático
         if os.path.exists(self.config_path):
             import shutil
             backup_path = self.config_path + ".bak"
             shutil.copy2(self.config_path, backup_path)
-        # Salva os FFlags editados no campo 'fflags' do config.json
         if os.path.exists(self.config_path):
             try:
                 with open(self.config_path, "r") as f:
@@ -445,33 +425,26 @@ class LukuWindow(Gtk.ApplicationWindow):
                 self.show_error(f"Erro ao salvar config.json: {e}")
         else:
             self.show_error("Arquivo config.json não encontrado!")
-
     def apply_dark_mode(self):
         settings = Gtk.Settings.get_default()
         if settings:
             settings.set_property("gtk-application-prefer-dark-theme", True)
-
     def show_error(self, message):
         dialog = Gtk.MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.CLOSE, message_type=Gtk.MessageType.ERROR, text=message)
         dialog.connect("response", lambda d, r: d.destroy())
-        dialog.show()
-
+        dialog.present()
     def show_info(self, message):
         dialog = Gtk.MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.CLOSE, message_type=Gtk.MessageType.INFO, text=message)
         dialog.connect("response", lambda d, r: d.destroy())
-        dialog.show()
-
+        dialog.present()
     def on_apply_easy(self, button):
-        # FPS Unlock
         fps = self.fps_entry.get_text().strip()
         if fps:
             self.set_easy_fflag("DFIntTaskSchedulerTargetFps", fps)
-        # Occlusion Culling
         if self.fflag_occlusion.get_active():
             self.set_easy_fflag("DFFlagUseVisBugChecks", "True")
         else:
             self.remove_easy_fflag("DFFlagUseVisBugChecks")
-        # Lightning Technologies
         if self.switch_voxel.get_active():
             self.set_easy_fflag("DFFlagDebugRenderForceTechnologyVoxel", "True")
         else:
@@ -484,7 +457,6 @@ class LukuWindow(Gtk.ApplicationWindow):
             self.set_easy_fflag("FFlagDebugForceFutureIsBrightPhase3", "True")
         else:
             self.remove_easy_fflag("FFlagDebugForceFutureIsBrightPhase3")
-        # Gráficos Avançados
         if self.switch_avatar_chat.get_active():
             self.set_easy_fflag("FFlagDebugAvatarChatVisualization", "True")
         else:
@@ -592,22 +564,18 @@ class LukuWindow(Gtk.ApplicationWindow):
         else:
             self.remove_easy_fflag("FIntCameraFarZPlane")
         self.show_info("Configurações aplicadas ao campo de FFlags!")
-
     def remove_easy_fflag(self, name):
         for row in self.fflag_store:
             if row[0] == name:
                 self.fflag_store.remove(row.iter)
                 break
         self.update_fflags_text()
-
 class LukuApp(Gtk.Application):
     def __init__(self):
         super().__init__(application_id="org.luku.sober")
-
     def do_activate(self):
         win = LukuWindow(self)
         win.present()
-
 if __name__ == "__main__":
     app = LukuApp()
     app.run()
