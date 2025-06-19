@@ -16,8 +16,11 @@ class LukuWindow(Gtk.ApplicationWindow):
         try:
             if not os.path.exists(logo_path):
                 urllib.request.urlretrieve(logo_url, logo_path)
+            logo_picture = Gtk.Picture.new_for_filename(logo_path)
+            logo_picture.set_content_fit(Gtk.ContentFit.CONTAIN)
+            logo_picture.set_size_request(180, 180)
         except Exception as e:
-            print(f"Could not download logo: {e}")
+            print(f"Could not load logo in UI: {e}")
 
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         self.set_child(vbox)
@@ -29,16 +32,8 @@ class LukuWindow(Gtk.ApplicationWindow):
         vbox.append(self.stack)
 
         easy_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24, margin_top=30, margin_bottom=30, margin_start=30, margin_end=30)
-        logo_path = "/tmp/lukus_logo.png"
-        try:
-            if not os.path.exists(logo_path):
-                urllib.request.urlretrieve("https://i.postimg.cc/KYg2SKGf/59a711a4-5083-43ac-a1fd-216876fba3e2-removalai-preview.png", logo_path)
-            logo_picture = Gtk.Picture.new_for_filename(logo_path)
-            logo_picture.set_content_fit(Gtk.ContentFit.CONTAIN)
-            logo_picture.set_size_request(180, 180)
+        if 'logo_picture' in locals():
             easy_box.append(logo_picture)
-        except Exception as e:
-            print(f"Could not load logo in UI: {e}")
         label = Gtk.Label(label="WELCOME TO LUKUS")
         label.set_margin_bottom(20)
         label.set_margin_top(20)
@@ -288,9 +283,12 @@ class LukuWindow(Gtk.ApplicationWindow):
         remove_button.connect("clicked", self.on_remove_fflag)
         save_button = Gtk.Button(label="Save FFlags")
         save_button.connect("clicked", self.on_save_fflags)
+        import_button = Gtk.Button(label="Import FFlags from .json")
+        import_button.connect("clicked", self.on_import_fflags)
         button_box.append(add_button)
         button_box.append(remove_button)
         button_box.append(save_button)
+        button_box.append(import_button)
         fflags_box.append(button_box)
         self.fflag_store = Gtk.ListStore(str, str)
         self.fflag_view = Gtk.TreeView(model=self.fflag_store)
@@ -348,7 +346,6 @@ class LukuWindow(Gtk.ApplicationWindow):
         fflags = {}
         for row in self.fflag_store:
             fflags[row[0]] = self.parse_value(row[1])
-        import json
         buf.set_text(json.dumps(fflags, indent=4, ensure_ascii=False))
     def parse_value(self, value):
         v = value.strip()
@@ -372,21 +369,21 @@ class LukuWindow(Gtk.ApplicationWindow):
                 fflags = data.get("fflags", {})
                 for key, value in fflags.items():
                     self.fflag_store.append([key, str(value)])
-                if os.path.exists(self.config_path):
-                    try:
-                        with open(self.config_path, "r") as f:
-                            data = json.load(f)
-                        fflags = data.get("fflags", {})
-                        if str(fflags.get("DFFlagDebugRenderForceTechnologyVoxel", "")).lower() == "true":
-                            self.switch_voxel.set_active(True)
-                        if str(fflags.get("FFlagDebugForceFutureIsBrightPhase2", "")).lower() == "true":
-                            self.switch_shadow.set_active(True)
-                        if str(fflags.get("FFlagDebugForceFutureIsBrightPhase3", "")).lower() == "true":
-                            self.switch_future.set_active(True)
-                    except Exception as e:
-                        print(f"Erro ao ler config.json: {e}")
+                # Set switches based on loaded FFlags
+                if str(fflags.get("DFFlagDebugRenderForceTechnologyVoxel", "")).lower() == "true":
+                    self.switch_voxel.set_active(True)
+                else:
+                    self.switch_voxel.set_active(False)
+                if str(fflags.get("FFlagDebugForceFutureIsBrightPhase2", "")).lower() == "true":
+                    self.switch_shadow.set_active(True)
+                else:
+                    self.switch_shadow.set_active(False)
+                if str(fflags.get("FFlagDebugForceFutureIsBrightPhase3", "")).lower() == "true":
+                    self.switch_future.set_active(True)
+                else:
+                    self.switch_future.set_active(False)
             except Exception as e:
-                print(f"Erro ao ler config.json: {e}")
+                print(f"Error reading config.json: {e}")
     def on_add_fflag(self, button):
         fflag = self.fflag_entry.get_text().strip()
         value = self.value_entry.get_text().strip()
@@ -396,10 +393,18 @@ class LukuWindow(Gtk.ApplicationWindow):
             self.value_entry.set_text("")
             self.update_fflags_text()
     def on_remove_fflag(self, button):
-        selection = self.fflag_view.get_selection()
-        model, treeiter = selection.get_selected() if selection else (None, None)
-        if treeiter:
-            model.remove(treeiter)
+        # Gtk4: Use GtkSingleSelection for selection
+        selection = self.fflag_view.get_selection() if hasattr(self.fflag_view, 'get_selection') else None
+        if selection:
+            model, treeiter = selection.get_selected()
+            if treeiter:
+                model.remove(treeiter)
+                self.update_fflags_text()
+        else:
+            # Fallback: remove first selected row (Gtk4+)
+            selected_rows = self.fflag_view.get_selection().get_selected_rows() if hasattr(self.fflag_view.get_selection(), 'get_selected_rows') else []
+            for path in selected_rows:
+                self.fflag_store.remove(self.fflag_store.get_iter(path))
             self.update_fflags_text()
     def on_fflag_edited(self, widget, path, text, column):
         self.fflag_store[path][column] = text
@@ -419,12 +424,41 @@ class LukuWindow(Gtk.ApplicationWindow):
                 data["fflags"] = fflags
                 with open(self.config_path, "w") as f:
                     json.dump(data, f, indent=4, ensure_ascii=False)
-                self.show_info("FFlags salvos com sucesso! (Backup criado)")
+                self.show_info("FFlags saved successfully! (Backup created)")
                 self.update_fflags_text()
             except Exception as e:
-                self.show_error(f"Erro ao salvar config.json: {e}")
+                self.show_error(f"Error saving config.json: {e}")
         else:
-            self.show_error("Arquivo config.json não encontrado!")
+            self.show_error("config.json file not found!")
+    def on_import_fflags(self, button):
+        dialog = Gtk.FileChooserDialog(
+            title="Select FFlags JSON File",
+            transient_for=self,
+            modal=True,
+            action=Gtk.FileChooserAction.OPEN,
+            buttons=(Gtk.ButtonsType.OK, Gtk.ResponseType.OK, Gtk.ButtonsType.CANCEL, Gtk.ResponseType.CANCEL)
+        )
+        filter_json = Gtk.FileFilter()
+        filter_json.set_name("JSON files")
+        filter_json.add_pattern("*.json")
+        dialog.add_filter(filter_json)
+        response = dialog.run()
+        if response == Gtk.ResponseType.OK:
+            filename = dialog.get_file().get_path()
+            try:
+                with open(filename, "r") as f:
+                    data = json.load(f)
+                fflags = data.get("fflags", data)
+                for row in list(self.fflag_store):
+                    self.fflag_store.remove(row.iter)
+                for key, value in fflags.items():
+                    self.fflag_store.append([key, str(value)])
+                self.update_fflags_text()
+                self.show_info("FFlags imported successfully!")
+            except Exception as e:
+                self.show_error(f"Failed to import FFlags: {e}")
+        dialog.destroy()
+
     def apply_dark_mode(self):
         settings = Gtk.Settings.get_default()
         if settings:

@@ -59,7 +59,7 @@ python3 lukus.py
 ```
 # TIP
 
-If Sober hasn’t been started yet, run it once before using Lukus to ensure the config file exists.
+Added import json file and fixed somethings
 
 
 
