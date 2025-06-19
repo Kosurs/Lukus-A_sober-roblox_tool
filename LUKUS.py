@@ -285,10 +285,13 @@ class LukuWindow(Gtk.ApplicationWindow):
         save_button.connect("clicked", self.on_save_fflags)
         import_button = Gtk.Button(label="Import FFlags from .json")
         import_button.connect("clicked", self.on_import_fflags)
+        clear_button = Gtk.Button(label="Delete All Flags")
+        clear_button.connect("clicked", self.on_clear_fflags)
         button_box.append(add_button)
         button_box.append(remove_button)
         button_box.append(save_button)
         button_box.append(import_button)
+        button_box.append(clear_button)
         fflags_box.append(button_box)
         self.fflag_store = Gtk.ListStore(str, str)
         self.fflag_view = Gtk.TreeView(model=self.fflag_store)
@@ -408,6 +411,11 @@ class LukuWindow(Gtk.ApplicationWindow):
             self.update_fflags_text()
     def on_fflag_edited(self, widget, path, text, column):
         self.fflag_store[path][column] = text
+        self.update_fflags_text()
+
+    def on_clear_fflags(self, button):
+        for row in list(self.fflag_store):
+            self.fflag_store.remove(row.iter)
         self.update_fflags_text()
     def on_save_fflags(self, button):
         if os.path.exists(self.config_path):
