@@ -435,29 +435,36 @@ class LukuWindow(Gtk.ApplicationWindow):
             title="Select FFlags JSON File",
             transient_for=self,
             modal=True,
-            action=Gtk.FileChooserAction.OPEN,
-            buttons=(Gtk.ButtonsType.OK, Gtk.ResponseType.OK, Gtk.ButtonsType.CANCEL, Gtk.ResponseType.CANCEL)
+            action=Gtk.FileChooserAction.OPEN
         )
+        dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        dialog.add_button("Open", Gtk.ResponseType.OK)
         filter_json = Gtk.FileFilter()
         filter_json.set_name("JSON files")
         filter_json.add_pattern("*.json")
         dialog.add_filter(filter_json)
-        response = dialog.run()
-        if response == Gtk.ResponseType.OK:
-            filename = dialog.get_file().get_path()
-            try:
-                with open(filename, "r") as f:
-                    data = json.load(f)
-                fflags = data.get("fflags", data)
-                for row in list(self.fflag_store):
-                    self.fflag_store.remove(row.iter)
-                for key, value in fflags.items():
-                    self.fflag_store.append([key, str(value)])
-                self.update_fflags_text()
-                self.show_info("FFlags imported successfully!")
-            except Exception as e:
-                self.show_error(f"Failed to import FFlags: {e}")
-        dialog.destroy()
+
+        def on_response(dlg, response_id):
+            if response_id == Gtk.ResponseType.OK:
+                file = dlg.get_file()
+                if file:
+                    filename = file.get_path()
+                    try:
+                        with open(filename, "r") as f:
+                            data = json.load(f)
+                        fflags = data.get("fflags", data)
+                        for row in list(self.fflag_store):
+                            self.fflag_store.remove(row.iter)
+                        for key, value in fflags.items():
+                            self.fflag_store.append([key, str(value)])
+                        self.update_fflags_text()
+                        self.show_info("FFlags imported successfully!")
+                    except Exception as e:
+                        self.show_error(f"Failed to import FFlags: {e}")
+            dlg.destroy()
+
+        dialog.connect("response", on_response)
+        dialog.present()
 
     def apply_dark_mode(self):
         settings = Gtk.Settings.get_default()
