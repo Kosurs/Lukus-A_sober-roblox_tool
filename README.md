@@ -1,65 +1,82 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body>
-    <h1 align="center">
-        <img src="https://i.postimg.cc/KYg2SKGf/59a711a4-5083-43ac-a1fd-216876fba3e2-removalai-preview.png" width="40" alt="Logo"/> 
-         Lukus - Sober FFlags Modifier 
-    </h1>
- <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body>
-    <h1 align="center">
-        <img src="https://i.ibb.co/yBM2GKZ2/Captura-de-tela-de-2025-05-31-18-23-09.png"/>
-        <img src="https://i.ibb.co/Cp6fCPkm/Captura-de-tela-de-2025-05-31-18-23-15.png"/>
-    </h1>
-</body>
-</html>
+# Lukus - Sober FFlags Modifier
 
-# What is it?
+![Logo](https://i.postimg.cc/KYg2SKGf/59a711a4-5083-43ac-a1fd-216876fba3e2-removalai-preview.png)
 
-Lukus - Sober FFlags Modifier is a GUI made for linux to view and modify Roblox Sober port FastFlags. It has an user-friendly interface to edit advanced graphics options, performance options, and experimental options for Sober without the need to manually edit JSONs
+---
 
-# How does it work?
+## Overview
 
-Lukus reads and edits the config.json file from Sober, located at `~/.var/app/org.vinegarhq.Sober/config/sober/config.json`
-The interface has three main tabs:
+**Lukus - Sober FFlags Modifier** is a user-friendly GUI tool for Linux that allows you to view and modify Roblox Sober port FastFlags. It provides an intuitive interface to edit advanced graphics, performance, and experimental options for Sober, eliminating the need to manually edit JSON files.
 
-- Easy Access: Quick options and switches for FPS, graphics, lighting, and more.
-FFlags: Manual FFlag editing, with a live preview and automatic backup.
-- Credits: Information about the author and project.
-#### All changes are applied only to the "fflags" field in the config file, keeping other settings untouched.The program automatically creates a backup of the original config file before saving.
+---
 
-# How to use it?
+## Features
 
-#### Requirements
+- **Easy Access Tab:** Quick toggles for FPS, graphics, lighting, and more.
+- **FFlags Tab:** Manual FFlag editing with live preview and automatic backup.
+- **Credits Tab:** Information about the author and project.
+- **Safe Editing:** Only the `fflags` field in the config file is modified; all other settings remain untouched.
+- **Automatic Backup:** The program creates a backup of the original config file before saving changes.
 
-Python 3.8+
-GTK4 and PyGObject
-Sober must have been started at least once (to create the config file)
-Install dependencies on Ubuntu/Debian:
+---
+
+## How It Works
+
+Lukus reads and edits the `config.json` file from Sober, located at:
 
 ```
- sudo apt install python3-gi gir1.2-gtk-4.0
+~/.var/app/org.vinegarhq.Sober/config/sober/config.json
 ```
-- Download or clone the code
-- Save the lukus.py file in a folder.
 
-- Run the program
--In the terminal, navigate to the folder and run:
+---
+
+## Requirements
+
+- Python 3.8+
+- GTK4 and PyGObject
+- Sober (must have been started at least once to create the config file)
+
+### Install Dependencies (Ubuntu/Debian)
+
+```sh
+sudo apt install python3-gi gir1.2-gtk-4.0
 ```
-python3 lukus.py
-```
-# TIP
 
-Added import json file and fixed somethings
+---
 
+## Installation & Usage
 
+1. **Download or clone this repository.**
+2. **Save `lukus.py` in a folder.**
+3. **Run the program:**
+   - Open a terminal, navigate to the folder, and run:
 
+   ```sh
+   python3 lukus.py
+   ```
+
+---
+
+## Screenshots
+
+![Screenshot 1](https://i.ibb.co/yBM2GKZ2/Captura-de-tela-de-2025-05-31-18-23-09.png)
+![Screenshot 2](https://i.ibb.co/Cp6fCPkm/Captura-de-tela-de-2025-05-31-18-23-15.png)
+
+---
+
+## What's New
+
+- **Added:** `import json` for improved config handling.
+- **Fixed:** Various bugs for better stability and reliability.
+
+---
+
+## Credits
+
+Developed by [Your Name or Handle].
+
+---
+
+## License
+
+[Specify your license here, e.g., MIT, GPL, etc.]
