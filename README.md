@@ -73,10 +73,6 @@ sudo apt install python3-gi gir1.2-gtk-4.0
 
 ## Credits
 
-Developed by [Your Name or Handle].
+Developed by Nhet/Kosurs.
 
----
 
-## License
-
-[Specify your license here, e.g., MIT, GPL, etc.]
