@@ -478,7 +478,7 @@ class LukuWindow(Gtk.ApplicationWindow):
         credits_box.append(yt_label)
         
         github_label = Gtk.Label()
-        github_label.set_markup("<a href='https://github.com/Nhet444/Lukus'>GitHub Repository</a>")
+        github_label.set_markup("<a href='https://github.com/Kosurs/Lukus-A_sober-roblox_tool'>GitHub Repository</a>")
         github_label.set_selectable(True)
         github_label.set_margin_bottom(20)
         credits_box.append(github_label)
