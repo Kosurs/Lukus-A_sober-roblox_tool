@@ -670,9 +670,9 @@ class LukuWindow(Gtk.ApplicationWindow):
             modal=True,
             message_type=Gtk.MessageType.QUESTION,
             buttons=Gtk.ButtonsType.YES_NO,
-            text="Delete All Flags?"
-        )
-        dialog.format_secondary_text("This will permanently remove all FFlags. Are you sure?")
+            text="Delete All Flags?",
+    secondary_text="This will permanently remove all FFlags. Are you sure?"
+)
         
         def on_response(dialog, response):
             if response == Gtk.ResponseType.YES:
