@@ -1,443 +1,723 @@
 import gi
 gi.require_version('Gtk', '4.0')
+gi.require_version('Adw', '1')
 import os
 import json
 import urllib.request
-from gi.repository import Gtk, GLib, GdkPixbuf
+from gi.repository import Gtk, GLib, GdkPixbuf, Gdk, GObject, Gio
+
+class FFlagItem(GObject.Object):
+    __gtype_name__ = 'FFlagItem'
+    
+    name = GObject.Property(type=str)
+    value = GObject.Property(type=str)
+    
+    def __init__(self, name, value):
+        super().__init__()
+        self.name = name
+        self.value = value
 
 class LukuWindow(Gtk.ApplicationWindow):
     def __init__(self, app):
         super().__init__(application=app)
         self.set_title("Lukus - Sober FFlags Modifier")
         self.set_default_size(700, 450)
+        
+        # Configuração de tema escuro
+        settings = Gtk.Settings.get_default()
+        settings.set_property("gtk-application-prefer-dark-theme", True)
+        
+        # Layout principal
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        self.set_child(main_box)
 
-        logo_url = "https://i.postimg.cc/KYg2SKGf/59a711a4-5083-43ac-a1fd-216876fba3e2-removalai-preview.png"
-        logo_path = "/tmp/lukus_logo.png"
-        try:
-            if not os.path.exists(logo_path):
-                urllib.request.urlretrieve(logo_url, logo_path)
-            logo_picture = Gtk.Picture.new_for_filename(logo_path)
-            logo_picture.set_content_fit(Gtk.ContentFit.CONTAIN)
-            logo_picture.set_size_request(180, 180)
-        except Exception as e:
-            print(f"Could not load logo in UI: {e}")
-
-        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        self.set_child(vbox)
+        # Cabeçalho com logo e título
+        header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12,
+                           margin_start=10, margin_end=10, margin_top=10, margin_bottom=10)
+        header_box.add_css_class("header")
+        
+        # Carregar logo
+        self.logo_path = self.download_logo(
+            "https://i.postimg.cc/KYg2SKGf/59a711a4-5083-43ac-a1fd-216876fba3e2-removalai-preview.png",
+            "/tmp/lukus_logo.png"
+        )
+        
+        # Logo
+        if self.logo_path:
+            try:
+                pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                    self.logo_path, 64, 64, True
+                )
+                logo_picture = Gtk.Picture()
+                logo_picture.set_pixbuf(pixbuf)
+                logo_picture.set_content_fit(Gtk.ContentFit.CONTAIN)
+                header_box.append(logo_picture)
+            except Exception as e:
+                print(f"Error loading logo: {e}")
+        
+        # Título do aplicativo
+        title_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, valign=Gtk.Align.CENTER)
+        app_title = Gtk.Label(label="Lukus - Sober FFlags Modifier")
+        app_title.add_css_class("app-title")
+        app_title.set_xalign(0)
+        title_box.append(app_title)
+        
+        subtitle = Gtk.Label(label="Optimize your Roblox experience")
+        subtitle.add_css_class("app-subtitle")
+        subtitle.set_xalign(0)
+        title_box.append(subtitle)
+        
+        header_box.append(title_box)
+        main_box.append(header_box)
+        
+        # Separador
+        separator = Gtk.Separator()
+        main_box.append(separator)
+        
+        # Stack e switcher
         self.stack = Gtk.Stack()
         self.stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT)
         self.stack.set_transition_duration(300)
+        
         switcher = Gtk.StackSwitcher(stack=self.stack)
-        vbox.append(switcher)
-        vbox.append(self.stack)
+        switcher.set_margin_top(10)
+        switcher.set_margin_bottom(10)
+        main_box.append(switcher)
+        main_box.append(self.stack)
+        
+        # Configurações
+        self.config_path = os.path.expanduser("~/.var/app/org.vinegarhq.Sober/config/sober/config.json")
+        self.sober_dir = os.path.dirname(self.config_path)
+        
+        # Verificar instalação do Sober
+        if not self.check_sober_installation():
+            self.show_error("Sober folder not found!\nPlease install and run Sober at least once.")
+            return
+        
+        # Páginas
+        self.create_easy_access_page()
+        self.create_fflags_page()
+        self.create_credits_page()
+        
+        # Carregar FFlags
+        self.load_fflags()
 
-        easy_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24, margin_top=30, margin_bottom=30, margin_start=30, margin_end=30)
-        if 'logo_picture' in locals():
-            easy_box.append(logo_picture)
-        label = Gtk.Label(label="WELCOME TO LUKUS")
-        label.set_margin_bottom(20)
-        label.set_margin_top(20)
-        label.set_margin_start(20)
-        label.set_margin_end(20)
-        easy_box.append(label)
-        fps_frame = Gtk.Frame(label="FPS Unlock")
-        fps_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12, margin_top=12, margin_bottom=12, margin_start=12, margin_end=12)
-        fps_label = Gtk.Label(label="FPS:")
-        self.fps_entry = Gtk.Entry(placeholder_text="E.g.: 60")
-        self.fps_entry.set_text("")
-        fps_box.append(fps_label)
-        fps_box.append(self.fps_entry)
-        fps_frame.set_child(fps_box)
+    def download_logo(self, url, path):
+        try:
+            if not os.path.exists(path):
+                urllib.request.urlretrieve(url, path)
+            return path
+        except Exception as e:
+            print(f"Error downloading logo: {e}")
+            return None
+
+    def check_sober_installation(self):
+        # Verifica se o Sober está instalado
+        flatpak_path = os.path.expanduser("~/.var/app/org.vinegarhq.Sober")
+        return os.path.exists(flatpak_path)
+
+    def create_frame(self, title, orientation=Gtk.Orientation.VERTICAL):
+        frame = Gtk.Frame(label=title)
+        box = Gtk.Box(orientation=orientation, spacing=12, 
+                      margin_top=12, margin_bottom=12, 
+                      margin_start=12, margin_end=12)
+        frame.set_child(box)
+        return frame, box
+
+    def create_switch_row(self, container, label, active=False, tooltip=None):
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        row.append(Gtk.Label(label=label, hexpand=True, xalign=0))
+        switch = Gtk.Switch(active=active)
+        if tooltip:
+            switch.set_tooltip_text(tooltip)
+        row.append(switch)
+        container.append(row)
+        return switch
+
+    def create_spin_row(self, container, label, min_val, max_val, step, value, tooltip=None):
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        row.append(Gtk.Label(label=label, hexpand=True, xalign=0))
+        spin = Gtk.SpinButton()
+        spin.set_range(min_val, max_val)
+        spin.set_increments(step, step * 5)
+        spin.set_value(value)
+        if tooltip:
+            spin.set_tooltip_text(tooltip)
+        row.append(spin)
+        container.append(row)
+        return spin
+
+    def create_switch_spin_row(self, container, label, min_val, max_val, step, value, active=False, tooltip=None):
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        row.append(Gtk.Label(label=label, hexpand=True, xalign=0))
+        
+        switch = Gtk.Switch(active=active)
+        row.append(switch)
+        
+        spin = Gtk.SpinButton()
+        spin.set_range(min_val, max_val)
+        spin.set_increments(step, step * 5)
+        spin.set_value(value)
+        spin.set_sensitive(active)
+        
+        # Conectar switch para habilitar/desabilitar spin
+        switch.connect("state-set", lambda s, state: spin.set_sensitive(state))
+        
+        if tooltip:
+            switch.set_tooltip_text(tooltip)
+            spin.set_tooltip_text(tooltip)
+        
+        row.append(spin)
+        container.append(row)
+        return switch, spin
+
+    def create_easy_access_page(self):
+        # Container principal com scroll
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        
+        # Box principal
+        easy_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, 
+                          spacing=24, 
+                          margin_top=10, margin_bottom=10,
+                          margin_start=20, margin_end=20)
+        
+        # Título
+        title = Gtk.Label(label="Easy Configuration")
+        title.add_css_class("section-title")
+        easy_box.append(title)
+        
+        # FPS Unlock
+        fps_frame, fps_box = self.create_frame("FPS Unlock")
+        self.fps_entry = self.create_spin_row(
+            fps_box, "FPS:", 1, 1000, 5, 60,
+            "Set your desired FPS limit (60 is recommended for most systems)"
+        )
         easy_box.append(fps_frame)
-        occ_frame = Gtk.Frame(label="Occlusion Culling")
-        occ_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12, margin_top=12, margin_bottom=12, margin_start=12, margin_end=12)
-        occ_label = Gtk.Label(label="Enable")
-        self.fflag_occlusion = Gtk.Switch()
-        self.fflag_occlusion.set_active(False)
-        occ_box.append(occ_label)
-        occ_box.append(self.fflag_occlusion)
-        occ_frame.set_child(occ_box)
+        
+        # Occlusion Culling
+        occ_frame, occ_box = self.create_frame("Occlusion Culling")
+        self.fflag_occlusion = self.create_switch_row(
+            occ_box, "Enable", False,
+            "Improves performance by not rendering objects that are not visible"
+        )
         easy_box.append(occ_frame)
-        lighting_frame = Gtk.Frame(label="Lightning Technologies")
-        lighting_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=12, margin_bottom=12, margin_start=12, margin_end=12)
-        self.switch_voxel = Gtk.Switch()
-        self.switch_voxel.set_active(False)
-        voxel_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-        voxel_row.append(Gtk.Label(label="Voxel Lighting (Phase 1)"))
-        voxel_row.append(self.switch_voxel)
-        lighting_box.append(voxel_row)
-        self.switch_shadow = Gtk.Switch()
-        self.switch_shadow.set_active(False)
-        shadow_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-        shadow_row.append(Gtk.Label(label="Shadowmap Lighting (Phase 2)"))
-        shadow_row.append(self.switch_shadow)
-        lighting_box.append(shadow_row)
-        self.switch_future = Gtk.Switch()
-        self.switch_future.set_active(False)
-        future_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-        future_row.append(Gtk.Label(label="Future Lighting (Phase 3)"))
-        future_row.append(self.switch_future)
-        lighting_box.append(future_row)
-        lighting_frame.set_child(lighting_box)
+        
+        # Lighting Technologies
+        lighting_frame, lighting_box = self.create_frame("Lightning Technologies")
+        self.switch_voxel = self.create_switch_row(
+            lighting_box, "Voxel Lighting (Phase 1)", False,
+            "Experimental voxel-based lighting system"
+        )
+        self.switch_shadow = self.create_switch_row(
+            lighting_box, "Shadowmap Lighting (Phase 2)", False,
+            "Improved shadow rendering technology"
+        )
+        self.switch_future = self.create_switch_row(
+            lighting_box, "Future Lighting (Phase 3)", False,
+            "Next-generation lighting system (may impact performance)"
+        )
         easy_box.append(lighting_frame)
-        advanced_frame = Gtk.Frame(label="Advanced Graphics")
-        advanced_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10, margin_top=10, margin_bottom=10, margin_start=10, margin_end=10)
-        self.switch_avatar_chat = Gtk.Switch()
-        self.switch_avatar_chat.set_active(False)
-        avatar_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        avatar_row.append(Gtk.Label(label="Avatar Chat Visualization"))
-        avatar_row.append(self.switch_avatar_chat)
-        advanced_box.append(avatar_row)
-        self.switch_hyper = Gtk.Switch()
-        self.switch_hyper.set_active(False)
-        hyper_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        hyper_row.append(Gtk.Label(label="HyperThreading"))
-        hyper_row.append(self.switch_hyper)
-        advanced_box.append(hyper_row)
-        max_threads_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        max_threads_row.append(Gtk.Label(label="Maximum Threads:"))
-        self.spin_max_threads = Gtk.SpinButton()
-        self.spin_max_threads.set_range(1, 9999)
-        self.spin_max_threads.set_increments(1, 10)
-        self.spin_max_threads.set_value(2400)
-        max_threads_row.append(self.spin_max_threads)
-        advanced_box.append(max_threads_row)
-        min_threads_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        min_threads_row.append(Gtk.Label(label="Minimum Threads:"))
-        self.spin_min_threads = Gtk.SpinButton()
-        self.spin_min_threads.set_range(1, 100)
-        self.spin_min_threads.set_increments(1, 1)
-        self.spin_min_threads.set_value(3)
-        min_threads_row.append(self.spin_min_threads)
-        advanced_box.append(min_threads_row)
-        self.switch_smooth_terrain = Gtk.Switch()
-        self.switch_smooth_terrain.set_active(False)
-        smooth_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        smooth_row.append(Gtk.Label(label="Smoother Terrain"))
-        smooth_row.append(self.switch_smooth_terrain)
-        advanced_box.append(smooth_row)
-        quality_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        self.switch_quality = Gtk.Switch()
-        self.switch_quality.set_active(False)
-        quality_row.append(Gtk.Label(label="Graphics Quality Level:"))
-        quality_row.append(self.switch_quality)
-        self.spin_quality = Gtk.SpinButton()
-        self.spin_quality.set_range(1, 10)
-        self.spin_quality.set_increments(1, 1)
-        self.spin_quality.set_value(1)
-        quality_row.append(self.spin_quality)
-        advanced_box.append(quality_row)
-        terrain_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        self.switch_terrain = Gtk.Switch()
-        self.switch_terrain.set_active(False)
-        terrain_row.append(Gtk.Label(label="Low Quality Terrain Textures:"))
-        terrain_row.append(self.switch_terrain)
-        self.spin_terrain = Gtk.SpinButton()
-        self.spin_terrain.set_range(4, 64)
-        self.spin_terrain.set_increments(4, 4)
-        self.spin_terrain.set_value(4)
-        terrain_row.append(self.spin_terrain)
-        advanced_box.append(terrain_row)
-        self.switch_no_shadows = Gtk.Switch()
-        self.switch_no_shadows.set_active(False)
-        no_shadows_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        no_shadows_row.append(Gtk.Label(label="Disable Shadows"))
-        no_shadows_row.append(self.switch_no_shadows)
-        advanced_box.append(no_shadows_row)
-        self.switch_dpi = Gtk.Switch()
-        self.switch_dpi.set_active(False)
-        dpi_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        dpi_row.append(Gtk.Label(label="Preserve rendering quality with display setting"))
-        dpi_row.append(self.switch_dpi)
-        advanced_box.append(dpi_row)
-        self.switch_wind = Gtk.Switch()
-        self.switch_wind.set_active(False)
-        wind_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        wind_row.append(Gtk.Label(label="Disable Wind"))
-        wind_row.append(self.switch_wind)
-        advanced_box.append(wind_row)
-        self.switch_postfx = Gtk.Switch()
-        self.switch_postfx.set_active(False)
-        postfx_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        postfx_row.append(Gtk.Label(label="Disable PostFX"))
-        postfx_row.append(self.switch_postfx)
-        advanced_box.append(postfx_row)
-        self.switch_gray_sky = Gtk.Switch()
-        self.switch_gray_sky.set_active(False)
-        gray_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        gray_row.append(Gtk.Label(label="Gray Sky"))
-        gray_row.append(self.switch_gray_sky)
-        advanced_box.append(gray_row)
-        self.switch_light_atten = Gtk.Switch()
-        self.switch_light_atten.set_active(False)
-        atten_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        atten_row.append(Gtk.Label(label="Lighting Attenuation"))
-        atten_row.append(self.switch_light_atten)
-        advanced_box.append(atten_row)
-        self.switch_gpu_culling = Gtk.Switch()
-        self.switch_gpu_culling.set_active(False)
-        gpu_culling_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        gpu_culling_row.append(Gtk.Label(label="Enable GPULightCulling"))
-        gpu_culling_row.append(self.switch_gpu_culling)
-        advanced_box.append(gpu_culling_row)
-        fb_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        self.switch_fb = Gtk.Switch()
-        self.switch_fb.set_active(False)
-        fb_row.append(Gtk.Label(label="Frame Buffer:"))
-        fb_row.append(self.switch_fb)
-        self.spin_fb = Gtk.SpinButton()
-        self.spin_fb.set_range(0, 10)
-        self.spin_fb.set_increments(1, 1)
-        self.spin_fb.set_value(4)
-        fb_row.append(self.spin_fb)
-        advanced_box.append(fb_row)
-        self.switch_high_tex = Gtk.Switch()
-        self.switch_high_tex.set_active(False)
-        high_tex_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        high_tex_row.append(Gtk.Label(label="High Quality Textures"))
-        high_tex_row.append(self.switch_high_tex)
-        advanced_box.append(high_tex_row)
-        low_tex_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        low_tex_row.append(Gtk.Label(label="Lower Quality Textures:"))
-        self.spin_low_tex = Gtk.SpinButton()
-        self.spin_low_tex.set_range(-1, 3)
-        self.spin_low_tex.set_increments(1, 1)
-        self.spin_low_tex.set_value(-1)
-        low_tex_row.append(self.spin_low_tex)
-        advanced_box.append(low_tex_row)
-        self.switch_no_avatar_tex = Gtk.Switch()
-        self.switch_no_avatar_tex.set_active(False)
-        no_avatar_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        no_avatar_row.append(Gtk.Label(label="No avatar textures"))
-        no_avatar_row.append(self.switch_no_avatar_tex)
-        advanced_box.append(no_avatar_row)
-        self.switch_no_grass = Gtk.Switch()
-        self.switch_no_grass.set_active(False)
-        no_grass_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        no_grass_row.append(Gtk.Label(label="Remove Grass"))
-        no_grass_row.append(self.switch_no_grass)
-        advanced_box.append(no_grass_row)
-        msaa_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        self.switch_msaa = Gtk.Switch()
-        self.switch_msaa.set_active(False)
-        msaa_row.append(Gtk.Label(label="Force MSAA:"))
-        msaa_row.append(self.switch_msaa)
-        self.spin_msaa = Gtk.SpinButton()
-        self.spin_msaa.set_range(0, 16)
-        self.spin_msaa.set_increments(1, 1)
-        self.spin_msaa.set_value(4)
-        msaa_row.append(self.spin_msaa)
-        advanced_box.append(msaa_row)
-        bias_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        self.switch_bias = Gtk.Switch()
-        self.switch_bias.set_active(False)
-        bias_row.append(Gtk.Label(label="ShadowMap Bias:"))
-        bias_row.append(self.switch_bias)
-        self.spin_bias = Gtk.SpinButton()
-        self.spin_bias.set_range(0, 100)
-        self.spin_bias.set_increments(1, 1)
-        self.spin_bias.set_value(75)
-        bias_row.append(self.spin_bias)
-        advanced_box.append(bias_row)
-        self.switch_outline = Gtk.Switch()
-        self.switch_outline.set_active(False)
-        outline_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        outline_row.append(Gtk.Label(label="Humanoid Outline"))
-        outline_row.append(self.switch_outline)
-        advanced_box.append(outline_row)
-        self.switch_xray = Gtk.Switch()
-        self.switch_xray.set_active(False)
-        xray_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        xray_row.append(Gtk.Label(label="Buggy ZPlane Camera (Xray)"))
-        xray_row.append(self.switch_xray)
-        advanced_box.append(xray_row)
-        advanced_frame.set_child(advanced_box)
+        
+        # Advanced Graphics
+        advanced_frame, advanced_box = self.create_frame("Advanced Graphics")
+        
+        self.switch_avatar_chat = self.create_switch_row(
+            advanced_box, "Avatar Chat Visualization", False,
+            "Visual indicators for avatar chat"
+        )
+        self.switch_hyper = self.create_switch_row(
+            advanced_box, "HyperThreading", False,
+            "Utilize CPU hyperthreading capabilities"
+        )
+        self.spin_max_threads = self.create_spin_row(
+            advanced_box, "Maximum Threads:", 1, 128, 1, 4,
+            "Maximum CPU threads to use (set to 0 for auto-detect)"
+        )
+        self.spin_min_threads = self.create_spin_row(
+            advanced_box, "Minimum Threads:", 1, 16, 1, 2,
+            "Minimum CPU threads to reserve"
+        )
+        self.switch_smooth_terrain = self.create_switch_row(
+            advanced_box, "Smoother Terrain", False,
+            "Improve terrain rendering quality"
+        )
+        
+        # Graphics Quality
+        self.switch_quality, self.spin_quality = self.create_switch_spin_row(
+            advanced_box, "Graphics Quality Level:", 1, 10, 1, 5, False,
+            "Higher values = better graphics but lower performance"
+        )
+        
+        # Terrain Textures
+        self.switch_terrain, self.spin_terrain = self.create_switch_spin_row(
+            advanced_box, "Low Quality Terrain Textures:", 4, 64, 4, 16, False,
+            "Lower values reduce texture quality to improve performance"
+        )
+        
+        # Outras opções
+        self.switch_no_shadows = self.create_switch_row(
+            advanced_box, "Disable Shadows", False,
+            "Disable shadows for better performance"
+        )
+        self.switch_dpi = self.create_switch_row(
+            advanced_box, "Preserve rendering quality with display setting", False,
+            "Maintain consistent quality across different DPI settings"
+        )
+        self.switch_wind = self.create_switch_row(
+            advanced_box, "Disable Wind", False,
+            "Disable wind effects for better performance"
+        )
+        self.switch_postfx = self.create_switch_row(
+            advanced_box, "Disable PostFX", False,
+            "Disable post-processing effects"
+        )
+        self.switch_gray_sky = self.create_switch_row(
+            advanced_box, "Gray Sky", False,
+            "Use simplified sky rendering"
+        )
+        self.switch_light_atten = self.create_switch_row(
+            advanced_box, "Lighting Attenuation", False,
+            "Control how light diminishes over distance"
+        )
+        self.switch_gpu_culling = self.create_switch_row(
+            advanced_box, "Enable GPULightCulling", False,
+            "Use GPU for light culling (requires compatible hardware)"
+        )
+        
+        # Frame Buffer
+        self.switch_fb, self.spin_fb = self.create_switch_spin_row(
+            advanced_box, "Frame Buffer:", 0, 10, 1, 4, False,
+            "Frame buffer size (higher = better quality but more VRAM usage)"
+        )
+        
+        # Textures
+        self.switch_high_tex = self.create_switch_row(
+            advanced_box, "High Quality Textures", False,
+            "Enable higher resolution textures"
+        )
+        self.spin_low_tex = self.create_spin_row(
+            advanced_box, "Lower Quality Textures:", -1, 3, 1, -1,
+            "Set to -1 for automatic quality based on hardware"
+        )
+        self.switch_no_avatar_tex = self.create_switch_row(
+            advanced_box, "No avatar textures", False,
+            "Disable avatar textures to reduce VRAM usage"
+        )
+        self.switch_no_grass = self.create_switch_row(
+            advanced_box, "Remove Grass", False,
+            "Disable grass rendering for better performance"
+        )
+        
+        # MSAA
+        self.switch_msaa, self.spin_msaa = self.create_switch_spin_row(
+            advanced_box, "Force MSAA:", 0, 16, 2, 4, False,
+            "Multisample anti-aliasing (higher = smoother edges but more GPU load)"
+        )
+        
+        # ShadowMap
+        self.switch_bias, self.spin_bias = self.create_switch_spin_row(
+            advanced_box, "ShadowMap Bias:", 0, 100, 1, 75, False,
+            "Adjust shadow rendering accuracy"
+        )
+        
+        # Outros efeitos
+        self.switch_outline = self.create_switch_row(
+            advanced_box, "Humanoid Outline", False,
+            "Enable character outlines"
+        )
+        self.switch_xray = self.create_switch_row(
+            advanced_box, "Buggy ZPlane Camera (Xray)", False,
+            "Experimental camera mode (may cause visual glitches)"
+        )
+        
         easy_box.append(advanced_frame)
-        apply_btn = Gtk.Button(label="Apply settings")
+        
+        # Botão aplicar
+        apply_btn = Gtk.Button(label="Apply Settings", margin_top=20)
+        apply_btn.add_css_class("suggested-action")
         apply_btn.connect("clicked", self.on_apply_easy)
         easy_box.append(apply_btn)
-        easy_scroll = Gtk.ScrolledWindow()
-        easy_scroll.set_child(easy_box)
-        easy_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        self.stack.add_titled(easy_scroll, "easy", "Easy Access")
-        fflags_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, margin_top=12, margin_bottom=12, margin_start=12, margin_end=12)
-        self.config_path = os.path.expanduser("~/.var/app/org.vinegarhq.Sober/config/sober/config.json")
-        sober_dir = os.path.dirname(self.config_path)
-        if not os.path.exists(sober_dir):
-            dialog = Gtk.MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.CLOSE, message_type=Gtk.MessageType.ERROR, text="Sober folder not found!\nStart Sober at least once.")
-            dialog.connect("response", lambda d, r: d.destroy())
-            dialog.present()
-        self.path_label = Gtk.Label(label=f"Config: {self.config_path}")
-        self.path_label.set_xalign(0)
-        fflags_box.append(self.path_label)
+        
+        scroll.set_child(easy_box)
+        self.stack.add_titled(scroll, "easy", "Easy Access")
+
+    def create_fflags_page(self):
+        fflags_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, 
+                            spacing=12, 
+                            margin_top=12, margin_bottom=12,
+                            margin_start=12, margin_end=12)
+        
+        # Título
+        title = Gtk.Label(label="Advanced FFlags Editor")
+        title.add_css_class("section-title")
+        fflags_box.append(title)
+        
+        # Caminho do arquivo
+        path_label = Gtk.Label(label=f"Config: {self.config_path}")
+        path_label.set_xalign(0)
+        path_label.set_selectable(True)
+        path_label.set_margin_bottom(10)
+        fflags_box.append(path_label)
+        
+        # Entrada de FFlags
         entry_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        self.fflag_entry = Gtk.Entry(placeholder_text="FFlag name")
-        self.value_entry = Gtk.Entry(placeholder_text="Value (true/false/text)")
+        self.fflag_entry = Gtk.Entry(placeholder_text="FFlag name", hexpand=True)
+        self.value_entry = Gtk.Entry(placeholder_text="Value (true/false/number)")
         entry_box.append(self.fflag_entry)
         entry_box.append(self.value_entry)
         fflags_box.append(entry_box)
+        
+        # Botões
         button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        add_button = Gtk.Button(label="Add FFlag")
+        add_button = Gtk.Button(label="Add FFlag", tooltip_text="Add a new FFlag")
         add_button.connect("clicked", self.on_add_fflag)
-        remove_button = Gtk.Button(label="Remove Selected")
+        remove_button = Gtk.Button(label="Remove Selected", tooltip_text="Remove selected FFlag")
         remove_button.connect("clicked", self.on_remove_fflag)
-        save_button = Gtk.Button(label="Save FFlags")
+        save_button = Gtk.Button(label="Save FFlags", tooltip_text="Save changes to config file")
         save_button.connect("clicked", self.on_save_fflags)
-        import_button = Gtk.Button(label="Import FFlags from .json")
+        save_button.add_css_class("suggested-action")
+        import_button = Gtk.Button(label="Import", tooltip_text="Import FFlags from JSON file")
         import_button.connect("clicked", self.on_import_fflags)
-        clear_button = Gtk.Button(label="Delete All Flags")
+        clear_button = Gtk.Button(label="Delete All Flags", tooltip_text="Remove all FFlags")
         clear_button.connect("clicked", self.on_clear_fflags)
+        
         button_box.append(add_button)
         button_box.append(remove_button)
         button_box.append(save_button)
         button_box.append(import_button)
         button_box.append(clear_button)
         fflags_box.append(button_box)
-        self.fflag_store = Gtk.ListStore(str, str)
-        self.fflag_view = Gtk.TreeView(model=self.fflag_store)
-        renderer_fflag = Gtk.CellRendererText()
-        renderer_fflag.set_property("editable", True)
-        renderer_fflag.connect("edited", self.on_fflag_edited, 0)
-        column_fflag = Gtk.TreeViewColumn("FFlag", renderer_fflag, text=0)
-        self.fflag_view.append_column(column_fflag)
-        renderer_value = Gtk.CellRendererText()
-        renderer_value.set_property("editable", True)
-        renderer_value.connect("edited", self.on_fflag_edited, 1)
-        column_value = Gtk.TreeViewColumn("Value", renderer_value, text=1)
-        self.fflag_view.append_column(column_value)
+        
+        # Lista de FFlags usando Gio.ListStore
+        self.fflag_store = Gio.ListStore(item_type=FFlagItem)
+        
+        # Usar ColumnView com SingleSelection
+        self.selection = Gtk.SingleSelection(model=self.fflag_store)
+        self.fflag_view = Gtk.ColumnView(model=self.selection)
+        
+        # Coluna FFlag
+        fflag_factory = Gtk.SignalListItemFactory()
+        fflag_factory.connect("setup", self.on_fflag_factory_setup)
+        fflag_factory.connect("bind", self.on_fflag_factory_bind)
+        
+        fflag_column = Gtk.ColumnViewColumn(title="FFlag", factory=fflag_factory)
+        self.fflag_view.append_column(fflag_column)
+        
+        # Coluna Valor
+        value_factory = Gtk.SignalListItemFactory()
+        value_factory.connect("setup", self.on_value_factory_setup)
+        value_factory.connect("bind", self.on_value_factory_bind)
+        
+        value_column = Gtk.ColumnViewColumn(title="Value", factory=value_factory)
+        self.fflag_view.append_column(value_column)
+        
+        # Scrolled Window
         scrolled = Gtk.ScrolledWindow()
         scrolled.set_child(self.fflag_view)
         scrolled.set_vexpand(True)
         fflags_box.append(scrolled)
+        
+        # Visualização JSON
+        json_frame = Gtk.Frame(label="JSON Preview", margin_top=10)
         self.fflags_text = Gtk.TextView()
         self.fflags_text.set_editable(False)
-        self.fflags_text.set_vexpand(False)
-        fflags_box.append(self.fflags_text)
-        self.stack.add_titled(fflags_box, "fflags", "FFlags")
-        credits_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16, margin_top=40, margin_bottom=40, margin_start=40, margin_end=40)
+        self.fflags_text.set_monospace(True)
+        json_frame.set_child(self.fflags_text)
+        fflags_box.append(json_frame)
+        
+        self.stack.add_titled(fflags_box, "fflags", "Advanced FFlags")
+
+    def on_fflag_factory_setup(self, factory, list_item):
+        label = Gtk.Label()
+        label.set_xalign(0)
+        list_item.set_child(label)
+
+    def on_fflag_factory_bind(self, factory, list_item):
+        label = list_item.get_child()
+        item = list_item.get_item()
+        if item:
+            label.set_text(item.name)
+
+    def on_value_factory_setup(self, factory, list_item):
+        entry = Gtk.Entry()
+        entry.set_hexpand(True)
+        list_item.set_child(entry)
+
+    def on_value_factory_bind(self, factory, list_item):
+        entry = list_item.get_child()
+        item = list_item.get_item()
+        if item:
+            entry.set_text(item.value)
+            entry.connect("changed", self.on_value_changed, item)
+
+    def on_value_changed(self, entry, item):
+        new_value = entry.get_text()
+        item.value = new_value
+        self.update_fflags_text()
+
+    def create_credits_page(self):
+        credits_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, 
+                             spacing=16, 
+                             margin_top=40, margin_bottom=40,
+                             margin_start=40, margin_end=40)
+        
         credits_title = Gtk.Label(label="Credits")
-        credits_title.set_margin_bottom(10)
-        credits_title.set_markup("<span size='xx-large' weight='bold'>Credits</span>")
+        credits_title.add_css_class("section-title")
         credits_box.append(credits_title)
+        
         author_label = Gtk.Label(label="Developed by: Nhet_444")
-        author_label.set_margin_bottom(8)
         author_label.set_markup("<b>Developed by:</b> Nhet_444")
+        author_label.set_margin_bottom(8)
         credits_box.append(author_label)
+        
         yt_label = Gtk.Label()
         yt_label.set_markup("<a href='https://www.youtube.com/@Nhet_444'>YouTube: @Nhet_444</a>")
         yt_label.set_selectable(True)
         yt_label.set_margin_bottom(8)
         credits_box.append(yt_label)
-        thanks_label = Gtk.Label(label="Thank you for using Lukus!\nIf you like this project, consider subscribing and supporting on YouTube.")
+        
+        github_label = Gtk.Label()
+        github_label.set_markup("<a href='https://github.com/Nhet444/Lukus'>GitHub Repository</a>")
+        github_label.set_selectable(True)
+        github_label.set_margin_bottom(20)
+        credits_box.append(github_label)
+        
+        thanks_label = Gtk.Label(label="Thank you for using Lukus!\n\n"
+                                     "If you like this project, consider supporting on YouTube.\n\n"
+                                     "Report issues or contribute on GitHub!")
         thanks_label.set_justify(Gtk.Justification.CENTER)
         credits_box.append(thanks_label)
+        
         self.stack.add_titled(credits_box, "creditos", "Credits")
-        self.load_fflags()
-        self.apply_dark_mode()
+
     def set_easy_fflag(self, name, value):
-        found = False
-        for row in self.fflag_store:
-            if row[0] == name:
-                row[1] = value
-                found = True
-                break
-        if not found:
-            self.fflag_store.append([name, value])
+        # Verificar se já existe
+        for i in range(self.fflag_store.get_n_items()):
+            item = self.fflag_store.get_item(i)
+            if item.name == name:
+                item.value = str(value)
+                return
+        # Se não existe, adicionar novo
+        self.fflag_store.append(FFlagItem(name, str(value)))
         self.update_fflags_text()
+
+    def remove_easy_fflag(self, name):
+        for i in range(self.fflag_store.get_n_items()):
+            item = self.fflag_store.get_item(i)
+            if item.name == name:
+                self.fflag_store.remove(i)
+                break
+        self.update_fflags_text()
+
+    def parse_value(self, value_str):
+        value_str = value_str.strip()
+        if value_str.lower() == 'true':
+            return True
+        if value_str.lower() == 'false':
+            return False
+        
+        # Tentar converter para número
+        try:
+            # Primeiro tenta como int
+            return int(value_str)
+        except ValueError:
+            try:
+                f_val = float(value_str)
+                # Se for inteiro, retorna int
+                if f_val.is_integer():
+                    return int(f_val)
+                return f_val
+            except ValueError:
+                return value_str
+
     def update_fflags_text(self):
         buf = self.fflags_text.get_buffer()
         fflags = {}
-        for row in self.fflag_store:
-            fflags[row[0]] = self.parse_value(row[1])
+        for i in range(self.fflag_store.get_n_items()):
+            item = self.fflag_store.get_item(i)
+            fflags[item.name] = self.parse_value(item.value)
         buf.set_text(json.dumps(fflags, indent=4, ensure_ascii=False))
-    def parse_value(self, value):
-        v = value.strip()
-        if v.lower() == 'true':
-            return True
-        if v.lower() == 'false':
-            return False
-        try:
-            if '.' in v:
-                return float(v)
-            return int(v)
-        except ValueError:
-            return v
+
     def load_fflags(self):
-        for row in list(self.fflag_store):
-            self.fflag_store.remove(row.iter)
-        if os.path.exists(self.config_path):
+        if not os.path.exists(self.config_path):
+            self.show_warning("Config file not found. Creating new one on save.")
+            return
+            
+        try:
+            with open(self.config_path, "r") as f:
+                data = json.load(f)
+                
+            fflags = data.get("fflags", {})
+            self.fflag_store.remove_all()
+            
+            for key, value in fflags.items():
+                self.fflag_store.append(FFlagItem(key, str(value)))
+                
+            # Atualizar UI com os valores carregados
+            self.update_easy_ui_from_fflags(fflags)
+            self.update_fflags_text()
+            
+        except Exception as e:
+            self.show_error(f"Error reading config.json: {str(e)}")
+
+    def update_easy_ui_from_fflags(self, fflags):
+        # Função auxiliar para obter valores com fallback
+        def get_value(key, default, type_cast=str):
+            value = fflags.get(key, default)
             try:
-                with open(self.config_path, "r") as f:
-                    data = json.load(f)
-                fflags = data.get("fflags", {})
-                for key, value in fflags.items():
-                    self.fflag_store.append([key, str(value)])
-                # Set switches based on loaded FFlags
-                if str(fflags.get("DFFlagDebugRenderForceTechnologyVoxel", "")).lower() == "true":
-                    self.switch_voxel.set_active(True)
-                else:
-                    self.switch_voxel.set_active(False)
-                if str(fflags.get("FFlagDebugForceFutureIsBrightPhase2", "")).lower() == "true":
-                    self.switch_shadow.set_active(True)
-                else:
-                    self.switch_shadow.set_active(False)
-                if str(fflags.get("FFlagDebugForceFutureIsBrightPhase3", "")).lower() == "true":
-                    self.switch_future.set_active(True)
-                else:
-                    self.switch_future.set_active(False)
-            except Exception as e:
-                print(f"Error reading config.json: {e}")
+                return type_cast(value)
+            except:
+                return default
+                
+        # Atualizar controles da UI
+        self.fps_entry.set_value(get_value("DFIntTaskSchedulerTargetFps", 60, int))
+        self.fflag_occlusion.set_active(get_value("DFFlagUseVisBugChecks", False, bool))
+        self.switch_voxel.set_active(get_value("DFFlagDebugRenderForceTechnologyVoxel", False, bool))
+        self.switch_shadow.set_active(get_value("FFlagDebugForceFutureIsBrightPhase2", False, bool))
+        self.switch_future.set_active(get_value("FFlagDebugForceFutureIsBrightPhase3", False, bool))
+        self.switch_avatar_chat.set_active(get_value("FFlagDebugAvatarChatVisualization", False, bool))
+        self.switch_hyper.set_active(get_value("FFlagDebugCheckRenderThreading", False, bool))
+        self.spin_max_threads.set_value(get_value("FIntRuntimeMaxNumOfThreads", 4, int))
+        self.spin_min_threads.set_value(get_value("FIntTaskSchedulerThreadMin", 2, int))
+        self.switch_smooth_terrain.set_active(get_value("FFlagDebugRenderingSetDeterministic", False, bool))
+        
+        # Graphics Quality
+        quality_active = "FIntRomarkStartWithGraphicQualityLevel" in fflags
+        self.switch_quality.set_active(quality_active)
+        if quality_active:
+            self.spin_quality.set_value(get_value("FIntRomarkStartWithGraphicQualityLevel", 5, int))
+        
+        # Terrain Textures
+        terrain_active = "FIntTerrainArraySliceSize" in fflags
+        self.switch_terrain.set_active(terrain_active)
+        if terrain_active:
+            self.spin_terrain.set_value(get_value("FIntTerrainArraySliceSize", 16, int))
+        
+        # Outras opções
+        self.switch_no_shadows.set_active(get_value("FIntRenderShadowIntensity", 0, int) == 0)
+        self.switch_dpi.set_active(get_value("DFFlagDisableDPIScale", False, bool))
+        self.switch_wind.set_active(get_value("FFlagGlobalWindRendering", True, bool))
+        self.switch_postfx.set_active(get_value("FFlagDisablePostFx", False, bool))
+        self.switch_gray_sky.set_active(get_value("FFlagDebugSkyGray", False, bool))
+        self.switch_light_atten.set_active(get_value("FFlagNewLightAttenuation", False, bool))
+        self.switch_gpu_culling.set_active(get_value("FFlagFastGPULightCulling3", False, bool))
+        self.switch_high_tex.set_active(get_value("DFFlagTextureQualityOverrideEnabled", False, bool))
+        self.spin_low_tex.set_value(get_value("DFIntPerformanceControlTextureQualityBestUtility", -1, int))
+        self.switch_no_avatar_tex.set_active(get_value("DFIntTextureCompositorActiveJobs", 0, int) == 0)
+        self.switch_no_grass.set_active(get_value("FIntFRMMinGrassDistance", 0, int) == 0)
+        
+        # Frame Buffer
+        fb_active = "DFIntMaxFrameBufferSize" in fflags
+        self.switch_fb.set_active(fb_active)
+        if fb_active:
+            self.spin_fb.set_value(get_value("DFIntMaxFrameBufferSize", 4, int))
+        
+        # MSAA
+        msaa_active = "FIntDebugForceMSAASamples" in fflags
+        self.switch_msaa.set_active(msaa_active)
+        if msaa_active:
+            self.spin_msaa.set_value(get_value("FIntDebugForceMSAASamples", 4, int))
+        
+        # ShadowMap
+        bias_active = "FIntRenderShadowmapBias" in fflags
+        self.switch_bias.set_active(bias_active)
+        if bias_active:
+            self.spin_bias.set_value(get_value("FIntRenderShadowmapBias", 75, int))
+        
+        self.switch_outline.set_active(get_value("DFFlagDebugDrawBroadPhaseAABBs", False, bool))
+        self.switch_xray.set_active(get_value("FIntCameraFarZPlane", 1, int) == 1)
+
     def on_add_fflag(self, button):
         fflag = self.fflag_entry.get_text().strip()
         value = self.value_entry.get_text().strip()
-        if fflag and value:
-            self.fflag_store.append([fflag, value])
-            self.fflag_entry.set_text("")
-            self.value_entry.set_text("")
-            self.update_fflags_text()
-    def on_remove_fflag(self, button):
-        # Gtk4: Use GtkSingleSelection for selection
-        selection = self.fflag_view.get_selection() if hasattr(self.fflag_view, 'get_selection') else None
-        if selection:
-            model, treeiter = selection.get_selected()
-            if treeiter:
-                model.remove(treeiter)
-                self.update_fflags_text()
-        else:
-            # Fallback: remove first selected row (Gtk4+)
-            selected_rows = self.fflag_view.get_selection().get_selected_rows() if hasattr(self.fflag_view.get_selection(), 'get_selected_rows') else []
-            for path in selected_rows:
-                self.fflag_store.remove(self.fflag_store.get_iter(path))
-            self.update_fflags_text()
-    def on_fflag_edited(self, widget, path, text, column):
-        self.fflag_store[path][column] = text
+        
+        if not fflag:
+            self.show_error("FFlag name cannot be empty!")
+            return
+            
+        if not value:
+            self.show_error("Value cannot be empty!")
+            return
+            
+        # Verificar se já existe
+        for i in range(self.fflag_store.get_n_items()):
+            item = self.fflag_store.get_item(i)
+            if item.name == fflag:
+                self.show_error(f"FFlag '{fflag}' already exists!")
+                return
+                
+        self.fflag_store.append(FFlagItem(fflag, value))
+        self.fflag_entry.set_text("")
+        self.value_entry.set_text("")
         self.update_fflags_text()
+        self.show_info(f"FFlag '{fflag}' added successfully!")
+
+    def on_remove_fflag(self, button):
+        position = self.selection.get_selected()
+        if position != Gtk.INVALID_LIST_POSITION:
+            item = self.fflag_store.get_item(position)
+            self.fflag_store.remove(position)
+            self.update_fflags_text()
+            self.show_info(f"FFlag '{item.name}' removed!")
 
     def on_clear_fflags(self, button):
-        for row in list(self.fflag_store):
-            self.fflag_store.remove(row.iter)
-        self.update_fflags_text()
+        if self.fflag_store.get_n_items() == 0:
+            return
+            
+        dialog = Gtk.MessageDialog(
+            transient_for=self,
+            modal=True,
+            message_type=Gtk.MessageType.QUESTION,
+            buttons=Gtk.ButtonsType.YES_NO,
+            text="Delete All Flags?"
+        )
+        dialog.format_secondary_text("This will permanently remove all FFlags. Are you sure?")
+        
+        def on_response(dialog, response):
+            if response == Gtk.ResponseType.YES:
+                self.fflag_store.remove_all()
+                self.update_fflags_text()
+                self.show_info("All FFlags deleted!")
+            dialog.destroy()
+        
+        dialog.connect("response", on_response)
+        dialog.present()
+
     def on_save_fflags(self, button):
+        # Criar diretório se não existir
+        os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
+        
+        # Fazer backup se o arquivo existir
         if os.path.exists(self.config_path):
             import shutil
             backup_path = self.config_path + ".bak"
             shutil.copy2(self.config_path, backup_path)
-        if os.path.exists(self.config_path):
-            try:
+        
+        try:
+            # Construir dados
+            data = {}
+            if os.path.exists(self.config_path):
                 with open(self.config_path, "r") as f:
                     data = json.load(f)
-                fflags = {}
-                for row in self.fflag_store:
-                    fflags[row[0]] = self.parse_value(row[1])
-                data["fflags"] = fflags
-                with open(self.config_path, "w") as f:
-                    json.dump(data, f, indent=4, ensure_ascii=False)
-                self.show_info("FFlags saved successfully! (Backup created)")
-                self.update_fflags_text()
-            except Exception as e:
-                self.show_error(f"Error saving config.json: {e}")
-        else:
-            self.show_error("config.json file not found!")
+            
+            # Atualizar FFlags
+            fflags = {}
+            for i in range(self.fflag_store.get_n_items()):
+                item = self.fflag_store.get_item(i)
+                fflags[item.name] = self.parse_value(item.value)
+            data["fflags"] = fflags
+            
+            # Salvar arquivo
+            with open(self.config_path, "w") as f:
+                json.dump(data, f, indent=4, ensure_ascii=False)
+                
+            self.show_info("FFlags saved successfully! Backup created.")
+            self.update_fflags_text()
+            
+        except Exception as e:
+            self.show_error(f"Error saving config.json: {str(e)}")
+
     def on_import_fflags(self, button):
         dialog = Gtk.FileChooserDialog(
             title="Select FFlags JSON File",
@@ -446,7 +726,8 @@ class LukuWindow(Gtk.ApplicationWindow):
             action=Gtk.FileChooserAction.OPEN
         )
         dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
-        dialog.add_button("Open", Gtk.ResponseType.OK)
+        dialog.add_button("Import", Gtk.ResponseType.OK)
+        
         filter_json = Gtk.FileFilter()
         filter_json.set_name("JSON files")
         filter_json.add_pattern("*.json")
@@ -456,175 +737,197 @@ class LukuWindow(Gtk.ApplicationWindow):
             if response_id == Gtk.ResponseType.OK:
                 file = dlg.get_file()
                 if file:
-                    filename = file.get_path()
                     try:
-                        with open(filename, "r") as f:
+                        with open(file.get_path(), "r") as f:
                             data = json.load(f)
+                            
+                        # Limpar lista atual
+                        self.fflag_store.remove_all()
+                        
+                        # Processar FFlags
                         fflags = data.get("fflags", data)
-                        for row in list(self.fflag_store):
-                            self.fflag_store.remove(row.iter)
                         for key, value in fflags.items():
-                            self.fflag_store.append([key, str(value)])
+                            self.fflag_store.append(FFlagItem(key, str(value)))
+                            
                         self.update_fflags_text()
-                        self.show_info("FFlags imported successfully!")
+                        self.update_easy_ui_from_fflags(fflags)
+                        self.show_info(f"{len(fflags)} FFlags imported successfully!")
+                        
                     except Exception as e:
-                        self.show_error(f"Failed to import FFlags: {e}")
+                        self.show_error(f"Failed to import FFlags: {str(e)}")
             dlg.destroy()
 
         dialog.connect("response", on_response)
         dialog.present()
 
-    def apply_dark_mode(self):
-        settings = Gtk.Settings.get_default()
-        if settings:
-            settings.set_property("gtk-application-prefer-dark-theme", True)
-    def show_error(self, message):
-        dialog = Gtk.MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.CLOSE, message_type=Gtk.MessageType.ERROR, text=message)
-        dialog.connect("response", lambda d, r: d.destroy())
-        dialog.present()
-    def show_info(self, message):
-        dialog = Gtk.MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.CLOSE, message_type=Gtk.MessageType.INFO, text=message)
-        dialog.connect("response", lambda d, r: d.destroy())
-        dialog.present()
     def on_apply_easy(self, button):
-        fps = self.fps_entry.get_text().strip()
-        if fps:
-            self.set_easy_fflag("DFIntTaskSchedulerTargetFps", fps)
+        # Aplicar apenas configurações ativadas pelo usuário
+        if self.fps_entry.get_value() > 0:
+            self.set_easy_fflag("DFIntTaskSchedulerTargetFps", int(self.fps_entry.get_value()))
+        
         if self.fflag_occlusion.get_active():
             self.set_easy_fflag("DFFlagUseVisBugChecks", "True")
-        else:
-            self.remove_easy_fflag("DFFlagUseVisBugChecks")
+        
         if self.switch_voxel.get_active():
             self.set_easy_fflag("DFFlagDebugRenderForceTechnologyVoxel", "True")
-        else:
-            self.remove_easy_fflag("DFFlagDebugRenderForceTechnologyVoxel")
+        
         if self.switch_shadow.get_active():
             self.set_easy_fflag("FFlagDebugForceFutureIsBrightPhase2", "True")
-        else:
-            self.remove_easy_fflag("FFlagDebugForceFutureIsBrightPhase2")
+        
         if self.switch_future.get_active():
             self.set_easy_fflag("FFlagDebugForceFutureIsBrightPhase3", "True")
-        else:
-            self.remove_easy_fflag("FFlagDebugForceFutureIsBrightPhase3")
+        
         if self.switch_avatar_chat.get_active():
             self.set_easy_fflag("FFlagDebugAvatarChatVisualization", "True")
-        else:
-            self.remove_easy_fflag("FFlagDebugAvatarChatVisualization")
+        
         if self.switch_hyper.get_active():
             self.set_easy_fflag("FFlagDebugCheckRenderThreading", "True")
             self.set_easy_fflag("FFlagRenderDebugCheckThreading2", "True")
-        else:
-            self.remove_easy_fflag("FFlagDebugCheckRenderThreading")
-            self.remove_easy_fflag("FFlagRenderDebugCheckThreading2")
-        if self.spin_max_threads.get_value() != 2400:
-            self.set_easy_fflag("FIntRuntimeMaxNumOfThreads", str(int(self.spin_max_threads.get_value())))
-        else:
-            self.remove_easy_fflag("FIntRuntimeMaxNumOfThreads")
-        if self.spin_min_threads.get_value() != 3:
-            self.set_easy_fflag("FIntTaskSchedulerThreadMin", str(int(self.spin_min_threads.get_value())))
-        else:
-            self.remove_easy_fflag("FIntTaskSchedulerThreadMin")
+        
+        if self.spin_max_threads.get_value() > 0:
+            self.set_easy_fflag("FIntRuntimeMaxNumOfThreads", int(self.spin_max_threads.get_value()))
+        
+        if self.spin_min_threads.get_value() > 0:
+            self.set_easy_fflag("FIntTaskSchedulerThreadMin", int(self.spin_min_threads.get_value()))
+        
         if self.switch_smooth_terrain.get_active():
             self.set_easy_fflag("FFlagDebugRenderingSetDeterministic", "True")
-        else:
-            self.remove_easy_fflag("FFlagDebugRenderingSetDeterministic")
+        
         if self.switch_quality.get_active():
-            self.set_easy_fflag("FIntRomarkStartWithGraphicQualityLevel", str(int(self.spin_quality.get_value())))
-        else:
-            self.remove_easy_fflag("FIntRomarkStartWithGraphicQualityLevel")
+            self.set_easy_fflag("FIntRomarkStartWithGraphicQualityLevel", int(self.spin_quality.get_value()))
+        
         if self.switch_terrain.get_active():
-            self.set_easy_fflag("FIntTerrainArraySliceSize", str(int(self.spin_terrain.get_value())))
-        else:
-            self.remove_easy_fflag("FIntTerrainArraySliceSize")
+            self.set_easy_fflag("FIntTerrainArraySliceSize", int(self.spin_terrain.get_value()))
+        
         if self.switch_no_shadows.get_active():
-            self.set_easy_fflag("FIntRenderShadowIntensity", "0")
-        else:
-            self.remove_easy_fflag("FIntRenderShadowIntensity")
+            self.set_easy_fflag("FIntRenderShadowIntensity", 0)
+        
         if self.switch_dpi.get_active():
             self.set_easy_fflag("DFFlagDisableDPIScale", "True")
-        else:
-            self.remove_easy_fflag("DFFlagDisableDPIScale")
+        
         if self.switch_wind.get_active():
             self.set_easy_fflag("FFlagGlobalWindRendering", "True")
             self.set_easy_fflag("FFlagGlobalWindActivated", "True")
-        else:
-            self.remove_easy_fflag("FFlagGlobalWindRendering")
-            self.remove_easy_fflag("FFlagGlobalWindActivated")
+        
         if self.switch_postfx.get_active():
             self.set_easy_fflag("FFlagDisablePostFx", "True")
-        else:
-            self.remove_easy_fflag("FFlagDisablePostFx")
+        
         if self.switch_gray_sky.get_active():
             self.set_easy_fflag("FFlagDebugSkyGray", "True")
-        else:
-            self.remove_easy_fflag("FFlagDebugSkyGray")
+        
         if self.switch_light_atten.get_active():
             self.set_easy_fflag("FFlagNewLightAttenuation", "True")
-        else:
-            self.remove_easy_fflag("FFlagNewLightAttenuation")
+        
         if self.switch_gpu_culling.get_active():
             self.set_easy_fflag("FFlagFastGPULightCulling3", "True")
-        else:
-            self.remove_easy_fflag("FFlagFastGPULightCulling3")
+        
         if self.switch_high_tex.get_active():
             self.set_easy_fflag("DFFlagTextureQualityOverrideEnabled", "True")
-        else:
-            self.remove_easy_fflag("DFFlagTextureQualityOverrideEnabled")
-        if self.switch_quality.get_active():
-            self.set_easy_fflag("DFIntTextureQualityOverride", str(int(self.spin_quality.get_value())))
-        else:
-            self.remove_easy_fflag("DFIntTextureQualityOverride")
-        if self.spin_low_tex.get_value() != -1:
-            self.set_easy_fflag("DFIntPerformanceControlTextureQualityBestUtility", str(int(self.spin_low_tex.get_value())))
-        else:
-            self.remove_easy_fflag("DFIntPerformanceControlTextureQualityBestUtility")
+        
+        if self.spin_low_tex.get_value() >= 0:
+            self.set_easy_fflag("DFIntPerformanceControlTextureQualityBestUtility", int(self.spin_low_tex.get_value()))
+        
         if self.switch_no_avatar_tex.get_active():
-            self.set_easy_fflag("DFIntTextureCompositorActiveJobs", "0")
-        else:
-            self.remove_easy_fflag("DFIntTextureCompositorActiveJobs")
+            self.set_easy_fflag("DFIntTextureCompositorActiveJobs", 0)
+        
         if self.switch_no_grass.get_active():
-            self.set_easy_fflag("FIntFRMMinGrassDistance", "0")
-            self.set_easy_fflag("FIntFRMMaxGrassDistance", "0")
-            self.set_easy_fflag("FIntRenderGrassDetailStrands", "0")
-            self.set_easy_fflag("FIntRenderGrassHeightScaler", "0")
-        else:
-            self.remove_easy_fflag("FIntFRMMinGrassDistance")
-            self.remove_easy_fflag("FIntFRMMaxGrassDistance")
-            self.remove_easy_fflag("FIntRenderGrassDetailStrands")
-            self.remove_easy_fflag("FIntRenderGrassHeightScaler")
+            self.set_easy_fflag("FIntFRMMinGrassDistance", 0)
+            self.set_easy_fflag("FIntFRMMaxGrassDistance", 0)
+            self.set_easy_fflag("FIntRenderGrassDetailStrands", 0)
+            self.set_easy_fflag("FIntRenderGrassHeightScaler", 0)
+        
         if self.switch_fb.get_active():
-            self.set_easy_fflag("DFIntMaxFrameBufferSize", str(int(self.spin_fb.get_value())))
-        else:
-            self.remove_easy_fflag("DFIntMaxFrameBufferSize")
+            self.set_easy_fflag("DFIntMaxFrameBufferSize", int(self.spin_fb.get_value()))
+        
         if self.switch_msaa.get_active():
-            self.set_easy_fflag("FIntDebugForceMSAASamples", str(int(self.spin_msaa.get_value())))
-        else:
-            self.remove_easy_fflag("FIntDebugForceMSAASamples")
+            self.set_easy_fflag("FIntDebugForceMSAASamples", int(self.spin_msaa.get_value()))
+        
         if self.switch_bias.get_active():
-            self.set_easy_fflag("FIntRenderShadowmapBias", str(int(self.spin_bias.get_value())))
-        else:
-            self.remove_easy_fflag("FIntRenderShadowmapBias")
+            self.set_easy_fflag("FIntRenderShadowmapBias", int(self.spin_bias.get_value()))
+        
         if self.switch_outline.get_active():
             self.set_easy_fflag("DFFlagDebugDrawBroadPhaseAABBs", "True")
-        else:
-            self.remove_easy_fflag("DFFlagDebugDrawBroadPhaseAABBs")
+        
         if self.switch_xray.get_active():
-            self.set_easy_fflag("FIntCameraFarZPlane", "1")
-        else:
-            self.remove_easy_fflag("FIntCameraFarZPlane")
-        self.show_info("Configurações aplicadas ao campo de FFlags!")
-    def remove_easy_fflag(self, name):
-        for row in self.fflag_store:
-            if row[0] == name:
-                self.fflag_store.remove(row.iter)
-                break
-        self.update_fflags_text()
+            self.set_easy_fflag("FIntCameraFarZPlane", 1)
+        
+        self.show_info("Settings applied to FFlags!")
+        self.on_save_fflags(None)  # Salvar automaticamente
+
+    def show_error(self, message):
+        dialog = Gtk.MessageDialog(
+            transient_for=self,
+            modal=True,
+            message_type=Gtk.MessageType.ERROR,
+            buttons=Gtk.ButtonsType.CLOSE,
+            text=message
+        )
+        dialog.connect("response", lambda d, r: d.destroy())
+        dialog.present()
+
+    def show_warning(self, message):
+        dialog = Gtk.MessageDialog(
+            transient_for=self,
+            modal=True,
+            message_type=Gtk.MessageType.WARNING,
+            buttons=Gtk.ButtonsType.OK,
+            text=message
+        )
+        dialog.connect("response", lambda d, r: d.destroy())
+        dialog.present()
+
+    def show_info(self, message):
+        dialog = Gtk.MessageDialog(
+            transient_for=self,
+            modal=True,
+            message_type=Gtk.MessageType.INFO,
+            buttons=Gtk.ButtonsType.OK,
+            text=message
+        )
+        dialog.connect("response", lambda d, r: d.destroy())
+        dialog.present()
+
 class LukuApp(Gtk.Application):
     def __init__(self):
         super().__init__(application_id="org.luku.sober")
+        
+        # Adicionar estilos CSS
+        css_provider = Gtk.CssProvider()
+        css = b"""
+        .header {
+            background-color: rgba(0, 0, 0, 0.8);
+            border-radius: 12px;
+            padding: 10px;
+        }
+        .app-title {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .app-subtitle {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+        .section-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        .suggested-action {
+            background-color: @accent_bg_color;
+            color: @accent_fg_color;
+        }
+        """
+        css_provider.load_from_data(css)
+        Gtk.StyleContext.add_provider_for_display(
+            Gdk.Display.get_default(),
+            css_provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+
     def do_activate(self):
         win = LukuWindow(self)
         win.present()
+
 if __name__ == "__main__":
     app = LukuApp()
     app.run()
