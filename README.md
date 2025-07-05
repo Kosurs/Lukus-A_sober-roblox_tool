@@ -39,7 +39,8 @@ Lukus reads and edits the `config.json` file from Sober, located at:
 ### Install Dependencies (Ubuntu/Debian)
 
 ```sh
-sudo apt install python3-gi gir1.2-gtk-4.0
+sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-4.0 gir1.2-adw-1 libadwaita-1-dev
+
 ```
 
 ---
