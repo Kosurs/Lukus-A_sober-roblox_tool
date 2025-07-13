@@ -40,10 +40,27 @@ Lukus reads and edits the Sober `config.json` file located at:
 - GTK4 and PyGObject
 - Sober (must have been started at least once to create the config file)
 
-### Install Dependencies (Ubuntu/Debian)
 
+### Install Dependencies
+
+#### Ubuntu/Debian
 ```bash
 sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-4.0 gir1.2-adw-1 libadwaita-1-dev
+```
+
+#### Arch Linux
+```bash
+sudo pacman -S python-gobject gtk4 libadwaita
+```
+
+#### Fedora
+```bash
+sudo dnf install python3-gobject gtk4 libadwaita
+```
+
+#### openSUSE
+```bash
+sudo zypper install python3-gobject gtk4 libadwaita
 ```
 
 ---
