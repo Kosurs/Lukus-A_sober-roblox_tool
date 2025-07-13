@@ -226,18 +226,28 @@ class LukuWindow(Gtk.ApplicationWindow):
             advanced_box, "Avatar Chat Visualization", False,
             "Visual indicators for avatar chat"
         )
+        # Switch para ativar configurações de threads
+        self.switch_threads = self.create_switch_row(
+            advanced_box, "Ativar configurações de threads", False,
+            "Habilita opções de HyperThreading e número de threads"
+        )
         self.switch_hyper = self.create_switch_row(
             advanced_box, "HyperThreading", False,
             "Utilize CPU hyperthreading capabilities"
         )
         self.spin_max_threads = self.create_spin_row(
-            advanced_box, "Maximum Threads:", 1, 128, 1, 4,
+            advanced_box, "Maximum Threads:", 1, 128, 1, 0,
             "Maximum CPU threads to use (set to 0 for auto-detect)"
         )
         self.spin_min_threads = self.create_spin_row(
-            advanced_box, "Minimum Threads:", 1, 16, 1, 2,
+            advanced_box, "Minimum Threads:", 1, 16, 1, 0,
             "Minimum CPU threads to reserve"
         )
+        # Habilitar/desabilitar controles de threads conforme switch
+        self.switch_threads.connect("state-set", lambda s, state: [self.switch_hyper.set_sensitive(state), self.spin_max_threads.set_sensitive(state), self.spin_min_threads.set_sensitive(state)])
+        self.switch_hyper.set_sensitive(False)
+        self.spin_max_threads.set_sensitive(False)
+        self.spin_min_threads.set_sensitive(False)
         self.switch_smooth_terrain = self.create_switch_row(
             advanced_box, "Smoother Terrain", False,
             "Improve terrain rendering quality"
@@ -245,13 +255,13 @@ class LukuWindow(Gtk.ApplicationWindow):
         
         # Graphics Quality
         self.switch_quality, self.spin_quality = self.create_switch_spin_row(
-            advanced_box, "Graphics Quality Level:", 1, 10, 1, 5, False,
+            advanced_box, "Graphics Quality Level:", 1, 10, 1, 1, False,
             "Higher values = better graphics but lower performance"
         )
-        
+
         # Terrain Textures
         self.switch_terrain, self.spin_terrain = self.create_switch_spin_row(
-            advanced_box, "Low Quality Terrain Textures:", 4, 64, 4, 16, False,
+            advanced_box, "Low Quality Terrain Textures:", 4, 64, 4, 4, False,
             "Lower values reduce texture quality to improve performance"
         )
         
@@ -287,7 +297,7 @@ class LukuWindow(Gtk.ApplicationWindow):
         
         # Frame Buffer
         self.switch_fb, self.spin_fb = self.create_switch_spin_row(
-            advanced_box, "Frame Buffer:", 0, 10, 1, 4, False,
+            advanced_box, "Frame Buffer:", 0, 10, 1, 0, False,
             "Frame buffer size (higher = better quality but more VRAM usage)"
         )
         
@@ -311,13 +321,13 @@ class LukuWindow(Gtk.ApplicationWindow):
         
         # MSAA
         self.switch_msaa, self.spin_msaa = self.create_switch_spin_row(
-            advanced_box, "Force MSAA:", 0, 16, 2, 4, False,
+            advanced_box, "Force MSAA:", 0, 16, 2, 0, False,
             "Multisample anti-aliasing (higher = smoother edges but more GPU load)"
         )
-        
+
         # ShadowMap
         self.switch_bias, self.spin_bias = self.create_switch_spin_row(
-            advanced_box, "ShadowMap Bias:", 0, 100, 1, 75, False,
+            advanced_box, "ShadowMap Bias:", 0, 100, 1, 0, False,
             "Adjust shadow rendering accuracy"
         )
         
@@ -418,12 +428,17 @@ class LukuWindow(Gtk.ApplicationWindow):
         scrolled.set_vexpand(True)
         fflags_box.append(scrolled)
         
-        # Visualização JSON
+        # Visualização JSON com scroller e altura fixa
         json_frame = Gtk.Frame(label="JSON Preview", margin_top=10)
+        scrolled_json = Gtk.ScrolledWindow()
+        scrolled_json.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        scrolled_json.set_min_content_height(150)
+        scrolled_json.set_max_content_height(200)
         self.fflags_text = Gtk.TextView()
         self.fflags_text.set_editable(False)
         self.fflags_text.set_monospace(True)
-        json_frame.set_child(self.fflags_text)
+        scrolled_json.set_child(self.fflags_text)
+        json_frame.set_child(scrolled_json)
         fflags_box.append(json_frame)
         
         self.stack.add_titled(fflags_box, "fflags", "Advanced FFlags")
@@ -553,9 +568,9 @@ class LukuWindow(Gtk.ApplicationWindow):
             
             for key, value in fflags.items():
                 self.fflag_store.append(FFlagItem(key, str(value)))
-                
-            # Atualizar UI com os valores carregados
-            self.update_easy_ui_from_fflags(fflags)
+
+            # Não atualizar UI do Easy Access com os valores carregados
+            # Apenas atualizar o preview JSON
             self.update_fflags_text()
             
         except Exception as e:
@@ -631,27 +646,41 @@ class LukuWindow(Gtk.ApplicationWindow):
     def on_add_fflag(self, button):
         fflag = self.fflag_entry.get_text().strip()
         value = self.value_entry.get_text().strip()
-        
+        fixed = False
+
+        # Corrigir vírgula no final do nome
+        if fflag.endswith(","):
+            fflag = fflag.rstrip(",").strip()
+            fixed = True
+
+        # Corrigir vírgula no final do valor
+        if value.endswith(","):
+            value = value.rstrip(",").strip()
+            fixed = True
+
         if not fflag:
             self.show_error("FFlag name cannot be empty!")
             return
-            
+
         if not value:
             self.show_error("Value cannot be empty!")
             return
-            
+
         # Verificar se já existe
         for i in range(self.fflag_store.get_n_items()):
             item = self.fflag_store.get_item(i)
             if item.name == fflag:
                 self.show_error(f"FFlag '{fflag}' already exists!")
                 return
-                
+
         self.fflag_store.append(FFlagItem(fflag, value))
         self.fflag_entry.set_text("")
         self.value_entry.set_text("")
         self.update_fflags_text()
-        self.show_info(f"FFlag '{fflag}' added successfully!")
+        if fixed:
+            self.show_info("Trailing comma detected and fixed automatically!")
+        else:
+            self.show_info(f"FFlag '{fflag}' added successfully!")
 
     def on_remove_fflag(self, button):
         position = self.selection.get_selected()
@@ -727,7 +756,7 @@ class LukuWindow(Gtk.ApplicationWindow):
         )
         dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
         dialog.add_button("Import", Gtk.ResponseType.OK)
-        
+
         filter_json = Gtk.FileFilter()
         filter_json.set_name("JSON files")
         filter_json.add_pattern("*.json")
@@ -740,19 +769,42 @@ class LukuWindow(Gtk.ApplicationWindow):
                     try:
                         with open(file.get_path(), "r") as f:
                             data = json.load(f)
-                            
+
                         # Limpar lista atual
                         self.fflag_store.remove_all()
-                        
-                        # Processar FFlags
+
+                        # Processar FFlags com correção de vírgulas
                         fflags = data.get("fflags", data)
+                        fixed_count = 0
+                        corrected_fflags = {}
                         for key, value in fflags.items():
-                            self.fflag_store.append(FFlagItem(key, str(value)))
-                            
+                            orig_key, orig_value = key, str(value)
+                            fixed = False
+                            # Corrigir vírgula no final do nome
+                            if key.endswith(","):
+                                key = key.rstrip(",").strip()
+                                fixed = True
+                            # Corrigir vírgula no final do valor
+                            if orig_value.endswith(","):
+                                value = orig_value.rstrip(",").strip()
+                                fixed = True
+                            else:
+                                value = orig_value
+                            if fixed:
+                                fixed_count += 1
+                            corrected_fflags[key] = value
+                            self.fflag_store.append(FFlagItem(key, value))
+
                         self.update_fflags_text()
-                        self.update_easy_ui_from_fflags(fflags)
-                        self.show_info(f"{len(fflags)} FFlags imported successfully!")
-                        
+                        self.update_easy_ui_from_fflags(corrected_fflags)
+                        msg = f"{len(corrected_fflags)} FFlags imported successfully!"
+                        if fixed_count > 0:
+                            msg += f"\nTrailing commas detected and fixed in {fixed_count} FFlags."
+                        self.show_info(msg)
+
+                        # Salvar automaticamente após importar
+                        self.on_save_fflags(None)
+
                     except Exception as e:
                         self.show_error(f"Failed to import FFlags: {str(e)}")
             dlg.destroy()
@@ -761,96 +813,114 @@ class LukuWindow(Gtk.ApplicationWindow):
         dialog.present()
 
     def on_apply_easy(self, button):
-        # Aplicar apenas configurações ativadas pelo usuário
+        # Remover FFlags do acesso fácil que não estão marcadas
+        easy_flags = [
+            "DFIntTaskSchedulerTargetFps", "DFFlagUseVisBugChecks", "DFFlagDebugRenderForceTechnologyVoxel",
+            "FFlagDebugForceFutureIsBrightPhase2", "FFlagDebugForceFutureIsBrightPhase3", "FFlagDebugAvatarChatVisualization",
+            "FFlagDebugCheckRenderThreading", "FFlagRenderDebugCheckThreading2", "FIntRuntimeMaxNumOfThreads",
+            "FIntTaskSchedulerThreadMin", "FFlagDebugRenderingSetDeterministic", "FIntRomarkStartWithGraphicQualityLevel",
+            "FIntTerrainArraySliceSize", "FIntRenderShadowIntensity", "DFFlagDisableDPIScale", "FFlagGlobalWindRendering",
+            "FFlagGlobalWindActivated", "FFlagDisablePostFx", "FFlagDebugSkyGray", "FFlagNewLightAttenuation",
+            "FFlagFastGPULightCulling3", "DFFlagTextureQualityOverrideEnabled", "DFIntPerformanceControlTextureQualityBestUtility",
+            "DFIntTextureCompositorActiveJobs", "FIntFRMMinGrassDistance", "FIntFRMMaxGrassDistance",
+            "FIntRenderGrassDetailStrands", "FIntRenderGrassHeightScaler", "DFIntMaxFrameBufferSize",
+            "FIntDebugForceMSAASamples", "FIntRenderShadowmapBias", "DFFlagDebugDrawBroadPhaseAABBs", "FIntCameraFarZPlane"
+        ]
+        for flag in easy_flags:
+            self.remove_easy_fflag(flag)
+
+        # Adicionar apenas os marcados
         if self.fps_entry.get_value() > 0:
             self.set_easy_fflag("DFIntTaskSchedulerTargetFps", int(self.fps_entry.get_value()))
-        
+
         if self.fflag_occlusion.get_active():
             self.set_easy_fflag("DFFlagUseVisBugChecks", "True")
-        
+
         if self.switch_voxel.get_active():
             self.set_easy_fflag("DFFlagDebugRenderForceTechnologyVoxel", "True")
-        
+
         if self.switch_shadow.get_active():
             self.set_easy_fflag("FFlagDebugForceFutureIsBrightPhase2", "True")
-        
+
         if self.switch_future.get_active():
             self.set_easy_fflag("FFlagDebugForceFutureIsBrightPhase3", "True")
-        
+
         if self.switch_avatar_chat.get_active():
             self.set_easy_fflag("FFlagDebugAvatarChatVisualization", "True")
-        
-        if self.switch_hyper.get_active():
-            self.set_easy_fflag("FFlagDebugCheckRenderThreading", "True")
-            self.set_easy_fflag("FFlagRenderDebugCheckThreading2", "True")
-        
-        if self.spin_max_threads.get_value() > 0:
-            self.set_easy_fflag("FIntRuntimeMaxNumOfThreads", int(self.spin_max_threads.get_value()))
-        
-        if self.spin_min_threads.get_value() > 0:
-            self.set_easy_fflag("FIntTaskSchedulerThreadMin", int(self.spin_min_threads.get_value()))
-        
+
+        # Só salva configurações de threads se o switch estiver ativado
+        if self.switch_threads.get_active():
+            if self.switch_hyper.get_active():
+                self.set_easy_fflag("FFlagDebugCheckRenderThreading", "True")
+                self.set_easy_fflag("FFlagRenderDebugCheckThreading2", "True")
+
+            if self.spin_max_threads.get_value() > 0:
+                self.set_easy_fflag("FIntRuntimeMaxNumOfThreads", int(self.spin_max_threads.get_value()))
+
+            if self.spin_min_threads.get_value() > 0:
+                self.set_easy_fflag("FIntTaskSchedulerThreadMin", int(self.spin_min_threads.get_value()))
+
         if self.switch_smooth_terrain.get_active():
             self.set_easy_fflag("FFlagDebugRenderingSetDeterministic", "True")
-        
+
         if self.switch_quality.get_active():
             self.set_easy_fflag("FIntRomarkStartWithGraphicQualityLevel", int(self.spin_quality.get_value()))
-        
+
         if self.switch_terrain.get_active():
             self.set_easy_fflag("FIntTerrainArraySliceSize", int(self.spin_terrain.get_value()))
-        
+
         if self.switch_no_shadows.get_active():
             self.set_easy_fflag("FIntRenderShadowIntensity", 0)
-        
+
         if self.switch_dpi.get_active():
             self.set_easy_fflag("DFFlagDisableDPIScale", "True")
-        
+
         if self.switch_wind.get_active():
             self.set_easy_fflag("FFlagGlobalWindRendering", "True")
             self.set_easy_fflag("FFlagGlobalWindActivated", "True")
-        
+
         if self.switch_postfx.get_active():
             self.set_easy_fflag("FFlagDisablePostFx", "True")
-        
+
         if self.switch_gray_sky.get_active():
             self.set_easy_fflag("FFlagDebugSkyGray", "True")
-        
+
         if self.switch_light_atten.get_active():
             self.set_easy_fflag("FFlagNewLightAttenuation", "True")
-        
+
         if self.switch_gpu_culling.get_active():
             self.set_easy_fflag("FFlagFastGPULightCulling3", "True")
-        
+
         if self.switch_high_tex.get_active():
             self.set_easy_fflag("DFFlagTextureQualityOverrideEnabled", "True")
-        
+
         if self.spin_low_tex.get_value() >= 0:
             self.set_easy_fflag("DFIntPerformanceControlTextureQualityBestUtility", int(self.spin_low_tex.get_value()))
-        
+
         if self.switch_no_avatar_tex.get_active():
             self.set_easy_fflag("DFIntTextureCompositorActiveJobs", 0)
-        
+
         if self.switch_no_grass.get_active():
             self.set_easy_fflag("FIntFRMMinGrassDistance", 0)
             self.set_easy_fflag("FIntFRMMaxGrassDistance", 0)
             self.set_easy_fflag("FIntRenderGrassDetailStrands", 0)
             self.set_easy_fflag("FIntRenderGrassHeightScaler", 0)
-        
+
         if self.switch_fb.get_active():
             self.set_easy_fflag("DFIntMaxFrameBufferSize", int(self.spin_fb.get_value()))
-        
+
         if self.switch_msaa.get_active():
             self.set_easy_fflag("FIntDebugForceMSAASamples", int(self.spin_msaa.get_value()))
-        
+
         if self.switch_bias.get_active():
             self.set_easy_fflag("FIntRenderShadowmapBias", int(self.spin_bias.get_value()))
-        
+
         if self.switch_outline.get_active():
             self.set_easy_fflag("DFFlagDebugDrawBroadPhaseAABBs", "True")
-        
+
         if self.switch_xray.get_active():
             self.set_easy_fflag("FIntCameraFarZPlane", 1)
-        
+
         self.show_info("Settings applied to FFlags!")
         self.on_save_fflags(None)  # Salvar automaticamente
 
