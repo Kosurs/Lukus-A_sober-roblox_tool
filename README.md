@@ -65,12 +65,15 @@ sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-4.0 gir1.2-adw-1 libadwa
 
 ---
 
-## What's New
+## What's New 06/13/25
 
-- **Added:** `import json` for improved config handling.
+- **Added:** Importing FFlags from JSON now auto-saves them.
+- **Improved:** All Easy Access options start unchecked by default.
+- **Improved:** FFlags preview window now uses a fixed size and scroll bar to prevent overflow.
+- **Improved:** Thread options (HyperThreading, Minimum/Maximum Threads) are only available when enabled by a dedicated switch.
+- **Improved:** Trailing commas in FFlag names or values are automatically fixed and the user is notified.
+- **Improved:** The logo is loaded directly from the local `LUKUS/LukusLogo.png` file.
 - **Fixed:** Various bugs for better stability and reliability.
-
----
 
 ## Credits
 
