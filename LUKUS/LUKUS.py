@@ -36,11 +36,8 @@ class LukuWindow(Gtk.ApplicationWindow):
                            margin_start=10, margin_end=10, margin_top=10, margin_bottom=10)
         header_box.add_css_class("header")
         
-        # Carregar logo
-        self.logo_path = self.download_logo(
-            "https://i.postimg.cc/KYg2SKGf/59a711a4-5083-43ac-a1fd-216876fba3e2-removalai-preview.png",
-            "/tmp/lukus_logo.png"
-        )
+        # Load logo from local folder
+        self.logo_path = os.path.join(os.path.dirname(__file__), "LukusLogo.png")
         
         # Logo
         if self.logo_path:
