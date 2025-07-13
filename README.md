@@ -1,36 +1,40 @@
+
 # Lukus - Sober FFlags Modifier
 
-![Logo](https://i.postimg.cc/KYg2SKGf/59a711a4-5083-43ac-a1fd-216876fba3e2-removalai-preview.png)
+<div align="center">
+  <img src="LUKUS/LukusLogo.png" alt="Lukus Logo" width="120" />
+  <h3>Roblox Sober FastFlags Editor for Linux</h3>
+</div>
 
 ---
 
-## Overview
+## 📝 Overview
 
-**Lukus - Sober FFlags Modifier** is a user-friendly GUI tool for Linux that allows you to view and modify Roblox Sober port FastFlags. It provides an intuitive interface to edit advanced graphics, performance, and experimental options for Sober, eliminating the need to manually edit JSON files.
+**Lukus** is a user-friendly GUI tool for Linux that lets you view and modify Roblox Sober port FastFlags. Easily tweak advanced graphics, performance, and experimental options—no need to manually edit JSON files!
 
 ---
 
-## Features
+## ✨ Features
 
 - **Easy Access Tab:** Quick toggles for FPS, graphics, lighting, and more.
 - **FFlags Tab:** Manual FFlag editing with live preview and automatic backup.
-- **Credits Tab:** Information about the author and project.
+- **Credits Tab:** Info about the author and project.
 - **Safe Editing:** Only the `fflags` field in the config file is modified; all other settings remain untouched.
-- **Automatic Backup:** The program creates a backup of the original config file before saving changes.
+- **Automatic Backup:** Creates a backup of the original config file before saving changes.
 
 ---
 
-## How It Works
+## ⚙️ How It Works
 
-Lukus reads and edits the `config.json` file from Sober, located at:
+Lukus reads and edits the Sober `config.json` file located at:
 
-```
+```bash
 ~/.var/app/org.vinegarhq.Sober/config/sober/config.json
 ```
 
 ---
 
-## Requirements
+## 📦 Requirements
 
 - Python 3.8+
 - GTK4 and PyGObject
@@ -38,34 +42,35 @@ Lukus reads and edits the `config.json` file from Sober, located at:
 
 ### Install Dependencies (Ubuntu/Debian)
 
-```sh
+```bash
 sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-4.0 gir1.2-adw-1 libadwaita-1-dev
-
 ```
 
 ---
 
-## Installation & Usage
+## 🚀 Installation & Usage
 
 1. **Download or clone this repository.**
 2. **Save `lukus.py` in a folder.**
 3. **Run the program:**
    - Open a terminal, navigate to the folder, and run:
 
-   ```sh
+   ```bash
    python3 lukus.py
    ```
 
 ---
 
-## Screenshots
+## 📸 Screenshots
 
-![Screenshot 1](https://i.ibb.co/yBM2GKZ2/Captura-de-tela-de-2025-05-31-18-23-09.png)
-![Screenshot 2](https://i.ibb.co/Cp6fCPkm/Captura-de-tela-de-2025-05-31-18-23-15.png)
+<div align="center">
+  <img src="https://i.ibb.co/yBM2GKZ2/Captura-de-tela-de-2025-05-31-18-23-09.png" alt="Screenshot 1" width="400" />
+  <img src="https://i.ibb.co/Cp6fCPkm/Captura-de-tela-de-2025-05-31-18-23-15.png" alt="Screenshot 2" width="400" />
+</div>
 
 ---
 
-## What's New 06/13/25
+## 🆕 What's New (2025-06-13)
 
 - **Added:** Importing FFlags from JSON now auto-saves them.
 - **Improved:** All Easy Access options start unchecked by default.
@@ -75,8 +80,10 @@ sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-4.0 gir1.2-adw-1 libadwa
 - **Improved:** The logo is loaded directly from the local `LUKUS/LukusLogo.png` file.
 - **Fixed:** Various bugs for better stability and reliability.
 
-## Credits
+---
 
-Developed by Nhet/Kosurs.
+## 👤 Credits
+
+Developed by **Nhet/Kosurs**
 
 
